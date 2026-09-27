@@ -1,0 +1,17 @@
+{
+  "id": "ce68213ce84e4f6a8881cf81bbd69315",
+  "paper_id": "313a48576b92473a8f6bbd480c27d42f",
+  "section": "question",
+  "section_label": "研究问题",
+  "operation": "generate",
+  "instruction": "",
+  "source_content": "",
+  "base_revision": 0,
+  "status": "failed",
+  "result": "",
+  "auto_applied": false,
+  "suggestion_available": false,
+  "error": "调用 Responses API 失败：Server disconnected without sending a response.",
+  "created_at": "2026-09-27T12:35:23.320331",
+  "updated_at": "2026-09-27T12:36:26"
+}

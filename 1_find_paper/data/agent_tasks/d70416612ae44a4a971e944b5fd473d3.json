@@ -1,0 +1,17 @@
+{
+  "id": "d70416612ae44a4a971e944b5fd473d3",
+  "paper_id": "313a48576b92473a8f6bbd480c27d42f",
+  "section": "overview",
+  "section_label": "概览",
+  "operation": "generate",
+  "instruction": "",
+  "source_content": "",
+  "base_revision": 0,
+  "status": "completed",
+  "result": "**题目**：FailureMem: A Failure-Aware Multimodal Framework for Autonomous Software Repair。**作者**：Ruize Ma、Yilei Jiang、Shilin Zhang、Zheng Ma、Yi Feng、Vincent Ng、Zhi Wang、Xiangyu Yue、Chuanyi Li、Lewei Lu。文档标注为 arXiv:2603.17826v1；正式发表会议或期刊：未在文中找到。[第1页]\n\n**目标与方法**：针对需同时理解代码、问题描述和截图的多模态程序修复，解决固定流程难以回溯、整页截图干扰定位、失败经验未被复用的问题。FailureMem 先以结构化流程定位文件和关键代码元素，再由智能体迭代生成补丁；智能体可用 Crop、Grounding 和沙箱 Bash 检查视觉区域及代码。其 Failure Memory Bank 将历史失败补丁与开发者补丁对照，提炼情境、认知和代码三个层次的指导。[第1–6页]\n\n**主要结果**：在 SWE-bench Multimodal 上，GPT-5.1 配置的解决率为 33.1%，较同模型的 GUIRepair 29.4% 高 **3.7 个百分点**；GPT-5.1 消融实验中，完整框架为 33.1%，基础配置为 28.6%。作者报告每题推理成本为 $0.33，GUIRepair 为 $0.29。[第6–7、9页]\n\n**不确定性与限制**：作者指出，罕见或无历史类似案例的故障难以受益于记忆库。[第9页] **分析推断**：评测样本口径需进一步核对——正文称基准共 617 题，附录称开发集有 102 题，而记忆消融表使用 517 题；这些数字不能直接构成清晰一致的划分。[第6–7、11页]",
+  "auto_applied": true,
+  "suggestion_available": false,
+  "error": "",
+  "created_at": "2026-09-27T13:14:18.271891",
+  "updated_at": "2026-09-27T13:14:45"
+}

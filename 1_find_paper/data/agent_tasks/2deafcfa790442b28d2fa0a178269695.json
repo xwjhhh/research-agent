@@ -1,0 +1,17 @@
+{
+  "id": "2deafcfa790442b28d2fa0a178269695",
+  "paper_id": "313a48576b92473a8f6bbd480c27d42f",
+  "section": "method",
+  "section_label": "方法",
+  "operation": "generate",
+  "instruction": "",
+  "source_content": "",
+  "base_revision": 0,
+  "status": "completed",
+  "result": "### 已验证方法\n- **任务与目标**：输入代码库 C、问题文本 D 和截图 I，输出补丁 Δ，使 C′＝C⊕Δ 满足留出测试规范 F(C′)⊨T_spec；测试包括验证修复的 fail-to-pass 和验证无回归的 pass-to-pass。测试是任务目标，文中未称代理在生成补丁时可访问留出测试。[第4页]\n- **总体流程**：FailureMem 先检索历史失败经验，再以固定工作流完成文件定位、关键元素定位，最后仅在补丁生成阶段启用多轮代理及视觉、仓库探索工具。检索所得指导贯穿后续各阶段。[第4–6页]\n- **离线建库**：先在 SWE-bench Multimodal 的 102 个开发集问题上运行不带记忆库、但保留混合架构和主动感知的 GPT-5.1 系统；仅取其中 84 条失败轨迹，收集其失败补丁 Pfail、开发者补丁 Pgold、问题文本 D，以及至多三张截图 I。Gemini 3 Pro 对 ⟨D,I,Pfail,Pgold⟩ 做对比蒸馏；缺失必要字段、关键推理为空或出现虚构语法的条目被拒绝并重试，最终得到 84 条记忆。[第11–12页]\n- **记忆表示与检索**：每条 M_i＝⟨L_ctx,L_cog,L_code⟩。L_ctx 含 Issue Summary、由截图转写的 Visual Analysis，作为文本检索键；L_cog 含 Cognitive Diagnosis、Negative Constraint、Golden Principle；L_code 含 Failed Patch Summary、Golden Patch Summary，而非直接保存原始差异。面对新问题，Selector Agent 一次接收问题文本、截图及全部候选 L_ctx，语义选择 top-k 条；仅将入选条目的 L_cog 与 L_code 组成指导 G，注入后续阶段。默认 k＝3。[第4–5、8页]\n- **阶段1—文件定位**：扫描仓库目录树；模型一次性依据问题描述、文件树及记忆指导选出候选文件，不调用外部工具。[第5页]\n- **阶段2—关键元素定位**：对候选文件生成 Skeleton Compression 表示，结合记忆一次性定位待修改的类或函数，不启用代理循环。实现使用 Babel AST 解析 JavaScript/TypeScript 等语法，保留类与方法边界、函数签名及必要的多行签名、注释、import/export，省略实现体并压缩空行；短文件保留全文，过长骨架截至前 5,000 行，空骨架回退全文。短文件判定阈值的具体数值未在文中找到。[第5、12–13页]\n- **阶段3—补丁生成**：代理接收已定位关键元素的完整原始代码、问题描述和记忆，在多轮循环中探索、核验并生成补丁。CROP 按代理给出的绝对像素框 [xmin,ymin,xmax,ymax] 裁剪截图；GROUNDING 在原图上标注框以保留布局上下文。两者均可指定图片索引，处理后的图像返回下一轮；每轮严格只调用一个工具，坐标由代理估计，不依赖额外 DOM 定位模块。[第5–6、13–14页]\n- **仓库工具边界**：Bash 在仓库根目录以独立子进程执行，用于只读查看、搜索和核对代码环境；禁止文件写入及多类破坏性、联网和包管理命令。单命令超时 120 秒，输出上限为 300 行或 50 KB；因此不能将 Bash 描述为补丁写入工具。补丁实际写入接口未在文中找到。[第14页]\n- **运行设置与缺失项**：实验生成温度为 0，按 Pass@1 每题仅提交一个补丁、不重排序。[第6页] 文中未给出训练损失、参数微调过程、Selector Agent 的具体模型或提示词、代理循环停止条件、补丁写入接口及严格时间复杂度；不应据此补造实现细节。",
+  "auto_applied": true,
+  "suggestion_available": false,
+  "error": "",
+  "created_at": "2026-09-27T13:14:18.272890",
+  "updated_at": "2026-09-27T13:15:17"
+}

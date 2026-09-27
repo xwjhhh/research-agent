@@ -52,4 +52,20 @@ Each imported paper is saved below `论文/1_find_paper/data/papers/<paper-id>`:
 - `analysis.json` structured eight-dimension analysis
 - `analysis.md` readable research note
 
-The analysis flow follows the useful boundary from PaperQA: extract document text, assemble retrieval-oriented context, call the LLM with evidence rules, normalize the JSON, and persist the result.
+Each paper has eight editable sections in `sections.json`. Manual edits autosave with revision checks. Batch generation queues one task per blank section, runs 2–4 tasks concurrently (default 3), and saves task state in `data/agent_tasks`. Existing text is never overwritten by an Agent task; section revisions instead produce an explicit suggestion for the user to apply. If the section changed during generation, applying the old suggestion requires a second explicit confirmation against its current revision.
+
+### Optional local Codex runtime
+
+The browser always calls this FastAPI service, never Codex or a model provider directly. To use the open-source Codex runtime from `api/codex-main`, build/install its CLI first (or use an already installed `codex` executable) and configure:
+
+```env
+LLM_API_PROTOCOL=codex
+CODEX_EXECUTABLE=codex
+AGENT_CONCURRENCY=3
+```
+
+Set `CODEX_EXECUTABLE` to the compiled executable path if building from the checked-out source. Optionally set `CODEX_MODEL` to choose a model; otherwise the Codex CLI uses its configured default. Sign in to Codex separately. The backend runs one ephemeral, read-only Codex turn per section and parses its JSON response. PDF text is passed as context; task results still pass through the same revision-safe save rules. No browser-side API key is needed.
+
+## 前端配置 Agent
+
+也可以直接在前端顶部的“Agent 设置”中填写 API Key。前端通过本机 FastAPI 调用模型，不会让浏览器直接请求第三方模型服务。运行时配置只保存在当前后端进程内，重启 Uvicorn 后清空；GET 配置接口只返回“是否已配置”和来源，不返回明文密钥。若选择本机 Codex CLI，填写的密钥会通过子进程环境变量传给 Codex；也可以继续使用 Codex 自己的登录状态。

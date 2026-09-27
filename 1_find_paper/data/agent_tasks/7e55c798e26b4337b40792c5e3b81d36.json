@@ -1,0 +1,17 @@
+{
+  "id": "7e55c798e26b4337b40792c5e3b81d36",
+  "paper_id": "313a48576b92473a8f6bbd480c27d42f",
+  "section": "experiment",
+  "section_label": "实验",
+  "operation": "generate",
+  "instruction": "",
+  "source_content": "",
+  "base_revision": 0,
+  "status": "completed",
+  "result": "**已核实的实验记录**\n- **数据与划分**：使用 SWE-bench Multimodal（SWE-bench M），论文称其含 617 个真实 GitHub issue，覆盖 17 个 JavaScript 仓库；超过 83% 的任务必须利用视觉信息。失败记忆库仅从该基准的 102 个开发集问题构建：用无记忆版 FailureMem（GPT-5.1）运行后，取 84 条失败轨迹，排除 18 条成功轨迹，最终形成 84 条记忆。[Page 6][Page 11–12] 记忆组成实验以 517 个问题为分母；617、102 与 517 三个数量的具体划分关系**未在文中找到**。[Page 7][Page 11]\n- **对照与指标**：主要对照为复现官方实现的 GUIRepair；另报告 SWE-agent Multimodal、Computer-Use Agents、Agentless Lite、Zencoder 等参考结果。指标为 resolved rate（%）：提交补丁须满足修复问题的 fail-to-pass 测试及避免回归的 pass-to-pass 测试。采用 Pass@1，每个问题只提交一个补丁、不重排序；温度为 0，最终结果取三次独立运行的平均值。[Page 4][Page 6–7]\n- **主要结果**：GPT-5.1 下 FailureMem 为 33.1%，GUIRepair 为 29.4%，绝对提高 3.7 个百分点；GPT-4.1 为 31.1% 对 28.8%，GPT-5.2 为 33.3% 对 29.8%，Claude 4 为 32.5% 对 28.6%，Claude 4.5 为 33.8% 对 31.5%。[Page 7, Table 1]\n- **消融**：GPT-5.1 下，Base 为 28.6%；单独加入 Active Perception、Bash Environment、FailureMem（Memory Only）分别为 30.0%、30.2%、30.9%；完整系统为 33.1%。记忆字段实验固定检索 top-3，Cognitive Only、Code Only、Positive Only、Raw Patch、Full Summary 分别为 29.8%、30.6%、30.6%、30.8%、33.1%。检索数量实验中，GPT-5.1 与 Claude 4 均在 k=3 达峰值（33.1%、32.5%），因此默认 k=3。[Page 7–8, Tables 2–3, Figure 3]\n- **实现、预处理与资源**：离线记忆蒸馏使用 Gemini 3 Pro，对每条失败案例输入问题描述、最多三张截图、失败补丁和开发者补丁，并进行字段校验；候选代码文件使用基于 Babel AST 的骨架压缩，保留结构、注释及导入导出等信息。实验使用四张 NVIDIA A100（80GB）GPU；论文报告每问题推理成本 FailureMem 为 $0.33、GUIRepair 为 $0.29。[Page 6][Page 9][Page 11–13]\n\n**未报告与核查事项**：训练或微调预算、各次运行的方差／置信区间、完整软件版本及精确测试集划分**未在文中找到**。[Page 6–7][Page 11–14] **分析推断**：由于主要结果是三次运行均值，而记忆字段表同时给出如 171/517 的计数，不能仅凭现有描述确定该计数与三次运行如何对应。[Page 6–7] **研究建议**：复现时核实 617、102、517 的划分关系，并公布逐次运行结果及软件环境。",
+  "auto_applied": true,
+  "suggestion_available": false,
+  "error": "",
+  "created_at": "2026-09-27T13:14:18.273926",
+  "updated_at": "2026-09-27T13:15:50"
+}

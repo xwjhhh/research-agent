@@ -16,7 +16,7 @@ const approachOptions = [
 ];
 const storageKey = "yanxu-workspace-v2";
 const ids = [
-  "sidebar", "sidebarToggle", "stageNav", "projectSelect", "newProjectButton", "saveStatus", "projectTitle", "projectOverview", "overallProgress", "overallProgressBar", "overallProgressFill", "overallDetail", "stageHeading", "stageIndex", "stageTitle", "stageDescription", "stageBadge", "stageFooter", "footerPosition", "fieldGrid", "taskProgress", "taskList", "addTaskButton", "toolList", "addFileButton", "fileInput", "fileList", "previousButton", "nextButton", "genericStageView", "methodDesignView", "methodAssistButton", "methodStepper", "methodProblemInput", "methodGoalInput", "methodConstraintsInput", "methodMotivationInput", "methodObservationInput", "methodHypothesisInput", "methodInterventionInput", "methodEffectInput", "approachList", "candidateCount", "selectedMethodPanel", "selectedMethodTitle", "selectedMethodSubtitle", "methodDetailTabs", "methodDetailContent", "libraryView", "libraryProjectName", "libraryStageStatus", "savedPaperCount", "analyzedPaperCount", "pendingPaperCount", "paperSearch", "paperStatusFilters", "libraryTaskStrip", "addLibraryTaskButton", "paperList", "importPaperButton", "importDialog", "importForm", "closeImportButton", "cancelImportButton", "paperDropZone", "paperFileInput", "selectedFileNames", "paperTitle", "paperSubtitle", "paperUrl", "paperDetailDialog", "closeDetailButton", "detailStatus", "paperDetailTitle", "paperDetailSubtitle", "paperDetailMeta", "paperDetailTags", "detailPdfButton", "detailReanalyzeButton", "detailExportButton", "paperDetailTabs", "paperDetailContent", "evidenceDialog", "closeEvidenceButton", "evidenceLabel", "evidenceText", "evidencePage", "evidencePdfButton", "projectDialog", "projectForm", "projectName", "cancelProjectButton",
+  "sidebar", "sidebarToggle", "stageNav", "projectSelect", "newProjectButton", "agentSettingsButton", "agentSettingsDialog", "agentSettingsForm", "closeAgentSettingsButton", "cancelAgentSettingsButton", "saveAgentSettingsButton", "agentSettingsStatus", "agentProtocol", "agentApiBaseGroup", "agentApiBase", "agentModel", "agentApiKey", "agentKeyState", "clearAgentKey", "codexSettingsGroup", "codexExecutable", "codexModel", "saveStatus", "projectTitle", "projectOverview", "overallProgress", "overallProgressBar", "overallProgressFill", "overallDetail", "stageHeading", "stageIndex", "stageTitle", "stageDescription", "stageBadge", "stageFooter", "footerPosition", "fieldGrid", "taskProgress", "taskList", "addTaskButton", "toolList", "addFileButton", "fileInput", "fileList", "previousButton", "nextButton", "genericStageView", "methodDesignView", "methodAssistButton", "methodStepper", "methodProblemInput", "methodGoalInput", "methodConstraintsInput", "methodMotivationInput", "methodObservationInput", "methodHypothesisInput", "methodInterventionInput", "methodEffectInput", "approachList", "candidateCount", "selectedMethodPanel", "selectedMethodTitle", "selectedMethodSubtitle", "methodDetailTabs", "methodDetailContent", "libraryView", "libraryProjectName", "libraryStageStatus", "savedPaperCount", "analyzedPaperCount", "pendingPaperCount", "paperSearch", "paperStatusFilters", "libraryTaskStrip", "addLibraryTaskButton", "batchAnalyzeButton", "paperList", "importPaperButton", "importDialog", "importForm", "closeImportButton", "cancelImportButton", "paperDropZone", "paperFileInput", "selectedFileNames", "paperTitle", "paperSubtitle", "paperUrl", "paperDetailDialog", "closeDetailButton", "detailStatus", "paperDetailTitle", "paperDetailSubtitle", "paperDetailMeta", "paperDetailTags", "agentPanel", "closeAgentPanel", "toggleAgentPanel", "agentComposer", "agentPrompt", "agentSendButton", "agentPanelContext", "agentTaskState", "agentSuggestion", "agentSuggestionInput", "applyAgentSuggestion", "sectionEditorStatus", "sectionEditorLabel", "sectionEditorSource", "sectionEditorInput", "sectionEditorHint", "detailPdfButton", "detailReanalyzeButton", "detailExportButton", "paperDetailTabs", "paperDetailContent", "evidenceDialog", "closeEvidenceButton", "evidenceLabel", "evidenceText", "evidencePage", "evidencePdfButton", "projectDialog", "projectForm", "projectName", "cancelProjectButton",
 ];
 const elements = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
 let state;
@@ -25,7 +25,18 @@ let paperStatusFilter = "all";
 let paperSearchValue = "";
 let detailPaperId = null;
 let detailTab = "overview";
-const analysisTimers = new Map();
+const selectedPaperIds = new Set();
+const sectionSaveTimers = new Map();
+const sectionSavesInFlight = new Map();
+const dirtySections = new Set();
+const savedSuggestions = new Map();
+let activeAgentTaskId = null;
+let activeAgentSection = null;
+let activeAgentPaperId = null;
+let activeAgentTask = null;
+let pendingOverrideRevision = null;
+let taskStatusPollTimer = null;
+let agentConfig = null;
 
 function newTask(title = "") { return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, title, completed: false }; }
 function normalizeTasks(tasks) { return Array.isArray(tasks) ? tasks.map((task) => typeof task === "string" ? { ...newTask(task), title: task } : task && typeof task === "object" ? { ...newTask(), id: task.id || newTask().id, title: String(task.title || "").trim(), completed: Boolean(task.completed) } : null).filter((task) => task && task.title) : []; }
@@ -46,33 +57,38 @@ function makeAnalysis(paper) {
 }
 function makePaper(data = {}) {
   const paper = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, title: data.title || "未命名文献", subtitle: data.subtitle || "等待补充论文副标题", authors: data.authors || "待补充作者信息", venue: data.venue || "PDF 文献", year: String(data.year || "2026"), tags: data.tags || ["待整理"], summary: data.summary || "这篇论文已保存，点击 AI 分析后生成结构化摘要。", status: data.status || "pending", source: data.source || "", pdfName: data.pdfName || "", analysis: data.analysis || null };
-  if (paper.status === "analyzed" && !paper.analysis) paper.analysis = makeAnalysis(paper);
   return paper;
 }
 function createSeedPapers() { return [makePaper({ title: "Mip-Splatting", subtitle: "Alias-free 3D Gaussian Splatting", authors: "Yu et al.", venue: "CVPR", year: "2024", tags: ["3DGS", "Anti-aliasing", "Rendering"], summary: "通过 3D smoothing 与 2D Mip filter 改善不同尺度下的渲染稳定性。", status: "analyzed" }), makePaper({ title: "Gaussian Splatting for Real-Time Radiance Field Rendering", subtitle: "Real-time novel-view synthesis with 3D Gaussians", authors: "Kerbl et al.", venue: "SIGGRAPH", year: "2023", tags: ["3DGS", "Rendering", "Novel View Synthesis"], summary: "提出基于 3D Gaussian 的实时辐射场渲染方法，建立后续研究的基础。", status: "analyzed" }), makePaper({ title: "Scaffold-GS", subtitle: "Structured 3D Gaussians for View Synthesis", authors: "Lu et al.", venue: "CVPR", year: "2024", tags: ["3DGS", "Structure", "View Synthesis"], summary: "结构化 Gaussian 表示，为大规模场景的高效建模提供思路。" }), makePaper({ title: "Dynamic 3D Gaussians", subtitle: "Tracking by persistent dynamic view synthesis", authors: "Luiten et al.", venue: "3DV", year: "2024", tags: ["Dynamic Scene", "Tracking", "3DGS"], summary: "将 Gaussian 表示扩展到动态场景，适合作为后续研究方向参考。" })]; }
 function createMethodDesign() { return { selectedApproach: "merging", detailTab: "overview", assisted: false, fields: { problem: "高分辨率场景下 Gaussian 数量快速增长，导致显存和存储成本较高。", goal: "在尽可能保持 rendering quality 的情况下，降低 Gaussian 数量和模型存储。", constraints: "PSNR 下降 < X · Storage ↓ · FPS 不明显下降", motivation: "• pruning 容易损失细节\n• compression ratio 高，但训练复杂\n• vector quantization 存在 codebook overhead\n• 单个 Gaussian 的局部属性无法识别空间与特征冗余", observation: "相邻 Gaussian 存在大量相似 feature。", hypothesis: "部分 Gaussian 表达的是重复信息。", intervention: "根据 spatial + feature similarity 进行 adaptive Gaussian merging。", effect: "Gaussian 数量下降，同时比简单 pruning 更好地保留细节。" } }; }
 function makeProject(name, seeded = false) { return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, name, phase: 0, stages: stageDataTemplate(), papers: seeded ? createSeedPapers() : [], methodDesign: createMethodDesign() }; }
 function normalizeState(saved) {
-  if (!saved || !Array.isArray(saved.projects) || !saved.projects.length) return { projects: [makeProject("3DGS扩刊", true)], activeProjectId: null };
+  if (!saved || !Array.isArray(saved.projects) || !saved.projects.length) return { projects: [makeProject("未命名课题")], activeProjectId: null };
   saved.projects = saved.projects.map((project) => ({ ...makeProject(project.name || "未命名课题"), ...project, methodDesign: { ...createMethodDesign(), ...(project.methodDesign || {}), fields: { ...createMethodDesign().fields, ...(project.methodDesign?.fields || {}) } }, phase: Math.min(Math.max(Number(project.phase) || 0, 0), stages.length - 1), stages: stages.map((stage, index) => ({ ...stageDataTemplate()[index], ...(project.stages?.[index] || {}), fields: stage.fields.map((_, fieldIndex) => project.stages?.[index]?.fields?.[fieldIndex] || ""), tasks: normalizeTasks(project.stages?.[index]?.tasks), files: project.stages?.[index]?.files || [] })), papers: Array.isArray(project.papers) ? project.papers.map((paper) => makePaper(paper)) : [] }));
   saved.activeProjectId = saved.projects.some((project) => project.id === saved.activeProjectId) ? saved.activeProjectId : saved.projects[0].id;
   return saved;
 }
-function loadState() { try { const saved = JSON.parse(localStorage.getItem(storageKey)); if (saved) return normalizeState(saved); } catch {} const project = makeProject("3DGS扩刊", true); return { projects: [project], activeProjectId: project.id }; }
+function loadState() { try { const saved = JSON.parse(localStorage.getItem(storageKey)); if (saved) return normalizeState(saved); } catch {} const project = makeProject("未命名课题"); return { projects: [project], activeProjectId: project.id }; }
 state = loadState();
 if (!state.activeProjectId) state.activeProjectId = state.projects[0].id;
-if (state.projects.length === 1 && state.projects[0].name === "3DGS扩刊" && !state.projects[0].papers.length) state.projects[0].papers = createSeedPapers();
 function activeProject() { return state.projects.find((project) => project.id === state.activeProjectId) || state.projects[0]; }
 function activeStageData() { return activeProject().stages[activeProject().phase]; }
 function setSaveStatus(message, error = false) { elements.saveStatus.lastChild.textContent = message; elements.saveStatus.classList.toggle("is-error", error); }
 function saveState() { try { localStorage.setItem(storageKey, JSON.stringify(state)); setSaveStatus("已保存至本地"); } catch { setSaveStatus("无法保存至本地", true); } }
 function escapeHtml(value) { return String(value ?? "").replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[character])); }
+function sectionLabels() { return Object.fromEntries(detailTabs); }
+function sectionTextFromAnalysis(analysis, key) { if (!analysis) return ""; if (key === "overview") return [analysis.summary, analysis.abstract_zh].filter(Boolean).join("\n\n"); const value = analysis[key]; if (value === undefined || value === null || value === "") return ""; return typeof value === "string" ? value : JSON.stringify(value, null, 2); }
+function localSectionsForPaper(paper) { const sections = {}; detailTabs.forEach(([key, label]) => { const existing = paper.sections?.[key]; sections[key] = existing ? { ...existing, label } : { paper_id: paper.id, section: key, label, content: sectionTextFromAnalysis(paper.analysis, key), revision: 0, source: paper.analysis ? "analysis" : "empty", updated_at: "" }; }); return sections; }
+function paperSections(paper) { if (!paper.sections) paper.sections = localSectionsForPaper(paper); return paper.sections; }
+function activeSection() { const paper = activeProject().papers.find((item) => item.id === detailPaperId); return paper ? paperSections(paper)[detailTab] : null; }
+function setAgentPanel(open) { elements.agentPanel.hidden = !open; elements.agentPanel.closest('.paper-analysis-layout').classList.toggle('is-agent-open', open); if (open) { elements.agentPanelContext.textContent = `针对“${sectionLabels()[detailTab] || '当前维度'}”提出修改要求。`; elements.agentPrompt.focus(); } }
+function updateBatchAnalyzeButton() { const count = selectedPaperIds.size; elements.batchAnalyzeButton.disabled = !count; elements.batchAnalyzeButton.textContent = count ? `生成八项分析（${count}）` : "生成八项分析"; }
 
 function setSidebarCollapsed(collapsed) { sidebarCollapsed = collapsed; elements.sidebar.classList.toggle("is-collapsed", sidebarCollapsed); elements.sidebarToggle.textContent = sidebarCollapsed ? "›" : "‹"; elements.sidebarToggle.setAttribute("aria-expanded", String(!sidebarCollapsed)); const label = sidebarCollapsed ? "展开研究流程" : "折叠研究流程"; elements.sidebarToggle.setAttribute("aria-label", label); elements.sidebarToggle.setAttribute("title", label); }
 function renderProjects() { elements.projectSelect.replaceChildren(); state.projects.forEach((project) => { const option = document.createElement("option"); option.value = project.id; option.textContent = project.name; elements.projectSelect.append(option); }); elements.projectSelect.value = activeProject().id; elements.projectTitle.textContent = activeProject().name; }
 function renderNavigation() { const project = activeProject(); elements.stageNav.replaceChildren(); stages.forEach((stage, index) => { const tasks = project.stages[index].tasks || []; const complete = tasks.length > 0 && tasks.every((task) => task.completed); const button = document.createElement("button"); button.type = "button"; button.className = `stage-link${index === project.phase ? " is-active" : ""}${complete ? " is-complete" : ""}`; if (index === project.phase) button.setAttribute("aria-current", "step"); const number = document.createElement("span"); number.className = "stage-number"; number.textContent = String(index + 1).padStart(2, "0"); const label = document.createElement("span"); label.className = "stage-link-label"; const name = document.createElement("strong"); name.textContent = stage.nav; const status = document.createElement("small"); status.textContent = complete ? "已完成" : index === project.phase ? "当前阶段" : "待进行"; label.append(name, status); button.append(number, label); button.addEventListener("click", () => changeStage(index)); elements.stageNav.append(button); }); }
 function renderFields(stage, data) { elements.fieldGrid.replaceChildren(); stage.fields.forEach((field, index) => { const group = document.createElement("div"); group.className = "field-group"; const label = document.createElement("label"); label.className = "field-label"; label.htmlFor = `field-${index}`; label.textContent = field.label; const input = document.createElement(field.multiline ? "textarea" : "input"); input.id = `field-${index}`; input.className = "field-input"; input.placeholder = field.placeholder; input.value = data.fields[index] || ""; input.addEventListener("input", () => { data.fields[index] = input.value; saveState(); }); group.append(label, input); elements.fieldGrid.append(group); }); }
-function renderTaskItem(task, data, container, compact = false) { const row = document.createElement("div"); row.className = compact ? "library-task custom-task-item" : "task-item custom-task-item"; const checkbox = document.createElement("input"); checkbox.type = "checkbox"; checkbox.checked = task.completed; const check = document.createElement("span"); check.className = compact ? "library-task-mark" : "task-check"; check.textContent = task.completed ? "✓" : compact ? "•" : "✓"; const input = document.createElement("input"); input.type = "text"; input.className = compact ? "library-task-input" : "task-text-input"; input.value = task.title; input.placeholder = "输入小标题"; input.maxLength = 100; const remove = document.createElement("button"); remove.type = "button"; remove.className = "remove-task"; remove.setAttribute("aria-label", "删除小标题"); remove.textContent = "×"; checkbox.addEventListener("change", () => { task.completed = checkbox.checked; saveState(); refreshProgress(); renderNavigation(); renderLibraryTaskStrip(); }); input.addEventListener("input", () => { task.title = input.value; saveState(); }); remove.addEventListener("click", () => { data.tasks.splice(data.tasks.indexOf(task), 1); saveState(); renderStage(); }); row.append(checkbox, check, input, remove); container.append(row); }
+function renderTaskItem(task, data, container, compact = false) { const row = document.createElement("label"); row.className = compact ? "library-task custom-task-item" : "task-item custom-task-item"; const checkbox = document.createElement("input"); checkbox.type = "checkbox"; checkbox.checked = task.completed; const check = document.createElement("span"); check.className = compact ? "library-task-mark" : "task-check"; check.textContent = task.completed ? "✓" : compact ? "•" : "✓"; const input = document.createElement("input"); input.type = "text"; input.className = compact ? "library-task-input" : "task-text-input"; input.value = task.title; input.placeholder = "输入小标题"; input.maxLength = 100; const remove = document.createElement("button"); remove.type = "button"; remove.className = "remove-task"; remove.setAttribute("aria-label", "删除小标题"); remove.textContent = "×"; checkbox.addEventListener("change", () => { task.completed = checkbox.checked; saveState(); refreshProgress(); renderNavigation(); renderLibraryTaskStrip(); }); input.addEventListener("input", () => { task.title = input.value; saveState(); refreshProgress(); renderNavigation(); }); remove.addEventListener("click", (event) => { event.preventDefault(); data.tasks.splice(data.tasks.indexOf(task), 1); saveState(); renderStage(); }); row.append(checkbox, check, input, remove); container.append(row); }
 function addCustomTask(stageIndex) { const data = activeProject().stages[stageIndex]; const task = newTask(); data.tasks.push(task); saveState(); renderStage(); requestAnimationFrame(() => { const inputs = stageIndex === 0 ? elements.libraryTaskStrip.querySelectorAll(".library-task-input") : elements.taskList.querySelectorAll(".task-text-input"); inputs[inputs.length - 1]?.focus(); }); }
 function renderTasks(stage, data) { elements.taskList.replaceChildren(); (data.tasks || []).forEach((task) => renderTaskItem(task, data, elements.taskList)); }
 function renderTools(stage) { elements.toolList.replaceChildren(); stage.tools.forEach((tool) => { const link = document.createElement("a"); link.className = "tool-chip"; link.href = tool.url; link.target = "_blank"; link.rel = "noopener noreferrer"; link.textContent = tool.name; const arrow = document.createElement("span"); arrow.textContent = "↗"; link.append(arrow); elements.toolList.append(link); }); }
@@ -126,7 +142,7 @@ function renderMethodDetail() {
 function renderMethodCanvas() {
   const data = methodDesignData(); const fields = data.fields;
   elements.methodProblemInput.value = fields.problem; elements.methodGoalInput.value = fields.goal; elements.methodConstraintsInput.value = fields.constraints; elements.methodMotivationInput.value = fields.motivation; elements.methodObservationInput.value = fields.observation; elements.methodHypothesisInput.value = fields.hypothesis; elements.methodInterventionInput.value = fields.intervention; elements.methodEffectInput.value = fields.effect;
-  elements.methodAssistButton.textContent = data.assisted ? "✓ AI 建议已生成" : "✦ AI 辅助设计";
+  elements.methodAssistButton.textContent = data.assisted ? "✓ Agent 已协助梳理" : "让 Agent 帮我梳理";
   renderMethodStepper(); renderApproaches(); renderMethodDetail();
 }
 
@@ -142,25 +158,24 @@ function renderPaperCard(paper) {
   card.addEventListener("click", (event) => { if (!event.target.closest("button, a, input")) openPaperDetail(paper.id); });
   const header = document.createElement("div"); header.className = "paper-card-header";
   const titleBlock = document.createElement("div"); titleBlock.className = "paper-card-title-block";
+  const selection = document.createElement("input"); selection.type = "checkbox"; selection.className = "paper-selection"; selection.checked = selectedPaperIds.has(paper.id); selection.setAttribute("aria-label", `选择 ${paper.title}`); selection.addEventListener("change", () => { if (selection.checked) selectedPaperIds.add(paper.id); else selectedPaperIds.delete(paper.id); updateBatchAnalyzeButton(); });
   const titleButton = document.createElement("button"); titleButton.type = "button"; titleButton.className = "paper-title-button"; titleButton.addEventListener("click", () => openPaperDetail(paper.id));
   const title = document.createElement("h3"); title.textContent = paper.title;
   const subtitle = document.createElement("p"); subtitle.textContent = paper.subtitle;
   titleButton.append(title, subtitle); titleBlock.append(titleButton);
   const status = document.createElement("span"); status.className = `paper-status is-${paper.status}`; status.innerHTML = paper.status === "analyzed" ? "✓ 已分析" : paper.status === "analyzing" ? '<span class="mini-spinner"></span>分析中' : "● 待分析";
-  header.append(titleBlock, status);
+  const statusBlock = document.createElement("div"); statusBlock.className = "paper-card-status"; statusBlock.append(status); const progress = paper.taskSummary?.total ? document.createElement("small") : null; if (progress) { progress.textContent = paper.taskSummary.active ? `正在分析 ${paper.taskSummary.active} 项 · ${paper.taskSummary.done}/${paper.taskSummary.total}` : paper.taskSummary.failed ? `${paper.taskSummary.failed} 项失败 · ${paper.taskSummary.done}/${paper.taskSummary.total}` : `${paper.taskSummary.done}/${paper.taskSummary.total} 项`; statusBlock.append(progress); } header.append(selection, titleBlock, statusBlock);
   const meta = document.createElement("div"); meta.className = "paper-card-meta"; meta.textContent = `${paper.authors} · ${paper.venue} ${paper.year}`;
   const tags = document.createElement("div"); tags.className = "paper-tags"; (paper.tags || []).forEach((tag) => { const chip = document.createElement("span"); chip.textContent = `#${tag}`; tags.append(chip); });
   const summary = document.createElement("p"); summary.className = "paper-summary"; summary.textContent = paper.summary;
   const footer = document.createElement("div"); footer.className = "paper-card-footer";
-  const primary = document.createElement("button"); primary.type = "button"; primary.className = paper.status === "analyzed" ? "paper-action" : "paper-action paper-action-primary"; primary.disabled = paper.status === "analyzing"; primary.textContent = paper.status === "analyzed" ? "查看分析" : paper.status === "analyzing" ? "AI 正在分析论文..." : "✦ AI 分析"; primary.addEventListener("click", () => paper.status === "analyzed" ? openPaperDetail(paper.id) : analyzePaper(paper.id)); footer.append(primary);
-  if (paper.status === "analyzed") { const reanalyze = document.createElement("button"); reanalyze.type = "button"; reanalyze.className = "paper-action"; reanalyze.textContent = "重新分析"; reanalyze.addEventListener("click", () => analyzePaper(paper.id)); footer.append(reanalyze); }
-  const pdf = document.createElement("button"); pdf.type = "button"; pdf.className = "paper-action paper-action-muted"; pdf.textContent = "PDF"; pdf.addEventListener("click", () => showEvidence({ label: "论文原文", text: paper.pdfName ? `${paper.pdfName} 已保存到当前文献记录中。` : "当前原型仅保存文献元数据，后续接入 PDF 查看器。", page: "PDF" })); footer.append(pdf);
+  const primary = document.createElement("button"); primary.type = "button"; primary.className = paper.status === "analyzed" ? "paper-action" : "paper-action paper-action-primary"; primary.disabled = paper.status === "analyzing"; primary.textContent = paper.status === "analyzed" ? "查看分析" : paper.status === "analyzing" ? "分析中…" : "开始分析"; primary.addEventListener("click", () => paper.status === "analyzed" ? openPaperDetail(paper.id) : analyzePaper(paper.id)); footer.append(primary);
   card.append(header, meta, tags, summary, footer); return card;
 }
 function renderLibrary() {
   const project = activeProject(); const papers = project.papers || []; const analyzed = papers.filter((paper) => paper.status === "analyzed").length; const pending = papers.length - analyzed;
   const libraryTasks = project.stages[0].tasks || []; const libraryDone = libraryTasks.length > 0 && libraryTasks.every((task) => task.completed); elements.libraryProjectName.textContent = project.name; elements.libraryStageStatus.textContent = libraryDone ? "已完成" : "进行中"; elements.savedPaperCount.textContent = papers.length; elements.analyzedPaperCount.textContent = analyzed; elements.pendingPaperCount.textContent = pending;
-  renderLibraryTaskStrip(); elements.paperList.replaceChildren();
+  renderLibraryTaskStrip(); updateBatchAnalyzeButton(); elements.paperList.replaceChildren();
   const filtered = papers.filter(paperMatches);
   if (!filtered.length) { const empty = document.createElement("div"); empty.className = "paper-empty"; empty.innerHTML = "<strong>没有匹配的文献</strong><span>调整筛选条件，或导入一篇新的论文。</span>"; elements.paperList.append(empty); } else filtered.forEach((paper) => elements.paperList.append(renderPaperCard(paper)));
 }
@@ -173,22 +188,18 @@ function renderStage() {
 }
 function renderAll() { renderProjects(); renderNavigation(); renderStage(); }
 function changeStage(index) { if (index < 0 || index >= stages.length) return; activeProject().phase = index; saveState(); renderNavigation(); renderStage(); window.scrollTo({ top: 0, behavior: "smooth" }); }
-function analyzePaper(id) {
-  const paper = activeProject().papers.find((item) => item.id === id); if (!paper || paper.status === "analyzing") return;
-  paper.status = "analyzing"; saveState(); renderLibrary();
-  const timer = setTimeout(() => { paper.status = "analyzed"; paper.analysis = makeAnalysis(paper); analysisTimers.delete(id); saveState(); renderLibrary(); if (detailPaperId === id && elements.paperDetailDialog.open) renderPaperDetail(); }, 1100);
-  analysisTimers.set(id, timer);
-}
-
-function openPaperDetail(id) { detailPaperId = id; detailTab = "overview"; renderPaperDetail(); elements.paperDetailDialog.showModal(); }
+function openPaperDetail(id) { detailPaperId = id; detailTab = "overview"; activeAgentTaskId = null; activeAgentSection = null; activeAgentPaperId = null; activeAgentTask = null; pendingOverrideRevision = null; elements.agentPrompt.value = ''; elements.agentSuggestionInput.value = ''; setAgentPanel(false); renderPaperDetail(); elements.paperDetailDialog.showModal(); void loadPaperSections(id); }
 function renderPaperDetail() {
   const paper = activeProject().papers.find((item) => item.id === detailPaperId); if (!paper) return;
-  elements.paperDetailTitle.textContent = `${paper.title}: ${paper.subtitle}`; elements.paperDetailSubtitle.textContent = `${paper.authors} · ${paper.venue} ${paper.year}`; elements.paperDetailMeta.textContent = paper.pdfName || paper.source || "Metadata 已保存到当前项目"; elements.paperDetailTags.replaceChildren();
+  const sections = paperSections(paper); const current = sections[detailTab] || sections.overview;
+  elements.paperDetailTitle.textContent = paper.title; elements.paperDetailSubtitle.textContent = paper.subtitle || ""; elements.paperDetailMeta.textContent = `${paper.authors} · ${paper.venue} ${paper.year}`; elements.paperDetailTags.replaceChildren();
   (paper.tags || []).forEach((tag) => { const chip = document.createElement("span"); chip.textContent = `#${tag}`; elements.paperDetailTags.append(chip); });
-  elements.detailStatus.className = `paper-status is-${paper.status}`; elements.detailStatus.innerHTML = paper.status === "analyzed" ? "✓ 已分析" : paper.status === "analyzing" ? '<span class="mini-spinner"></span>分析中' : "● 待分析"; elements.detailReanalyzeButton.textContent = paper.status === "analyzed" ? "重新分析" : "✦ AI 分析"; elements.detailReanalyzeButton.disabled = paper.status === "analyzing";
-  elements.paperDetailTabs.replaceChildren(); detailTabs.forEach(([key, label]) => { const button = document.createElement("button"); button.type = "button"; button.className = `detail-tab${detailTab === key ? " is-active" : ""}`; button.textContent = label; button.addEventListener("click", () => { detailTab = key; renderPaperDetail(); }); elements.paperDetailTabs.append(button); });
-  if (paper.status !== "analyzed" || !paper.analysis) { elements.paperDetailContent.innerHTML = `<div class="detail-empty"><span class="detail-empty-icon">✦</span><h3>${paper.status === "analyzing" ? "AI 正在分析论文" : "这篇论文还没有分析"}</h3><p>${paper.status === "analyzing" ? "分析完成后，结构化结果会保存在这里。" : "点击右上角的 AI 分析，生成研究问题、方法、结果和证据。"}</p><button class="footer-button footer-button-primary" type="button" data-detail-analyze>${paper.status === "analyzing" ? "分析中" : "✦ AI 分析"}</button></div>`; const button = elements.paperDetailContent.querySelector("[data-detail-analyze]"); button.disabled = paper.status === "analyzing"; button.addEventListener("click", () => analyzePaper(paper.id)); return; }
-  elements.paperDetailContent.innerHTML = renderDetailTab(paper.analysis, detailTab); elements.paperDetailContent.querySelectorAll("[data-evidence-index]").forEach((button) => button.addEventListener("click", () => showEvidence(paper.analysis.evidence[Number(button.dataset.evidenceIndex)])));
+  elements.detailStatus.className = `paper-status is-${paper.status}`; elements.detailStatus.innerHTML = paper.status === "analyzed" ? "✓ 已分析" : paper.status === "analyzing" ? '<span class="mini-spinner"></span>分析中' : "● 待分析"; elements.detailReanalyzeButton.textContent = paper.status === "analyzed" ? "生成空白栏" : "生成八项分析"; elements.detailReanalyzeButton.disabled = paper.status === "analyzing";
+  elements.paperDetailTabs.replaceChildren(); detailTabs.forEach(([key, label]) => { const button = document.createElement("button"); button.type = "button"; button.className = `detail-tab${detailTab === key ? " is-active" : ""}`; button.textContent = label; button.setAttribute("aria-current", detailTab === key ? "true" : "false"); button.addEventListener("click", () => { if (detailTab === key) return; detailTab = key; renderPaperDetail(); }); elements.paperDetailTabs.append(button); });
+  elements.sectionEditorLabel.textContent = current.label || sectionLabels()[detailTab]; elements.sectionEditorSource.textContent = current.source === "user" ? "手动编辑" : current.source === "agent" ? "Agent 生成" : current.source === "analysis" ? "已有分析" : "空白";
+  elements.sectionEditorInput.value = current.content || ""; elements.sectionEditorInput.placeholder = `编辑“${current.label || sectionLabels()[detailTab]}”，或让 Agent 先生成内容。`; elements.sectionEditorStatus.textContent = current.content ? `修订 ${current.revision || 0}` : "这一栏还没有内容"; elements.sectionEditorHint.textContent = current.updated_at ? `最后保存：${current.updated_at}` : "内容会自动保存。";
+  elements.sectionEditorInput.oninput = () => scheduleSectionSave(paper.id, detailTab);
+  elements.agentPanelContext.textContent = `针对“${current.label || sectionLabels()[detailTab]}”提出修改要求。`; renderAgentTaskState();
 }
 
 function renderDetailTab(analysis, tab) {
@@ -247,8 +258,13 @@ elements.paperDropZone.addEventListener("drop", (event) => { event.preventDefaul
 elements.importForm.addEventListener("submit", (event) => { event.preventDefault(); const files = [...elements.paperFileInput.files]; const url = elements.paperUrl.value.trim(); const title = elements.paperTitle.value.trim(); const subtitle = elements.paperSubtitle.value.trim(); if (!files.length && !url) { elements.paperDropZone.classList.add("is-invalid"); elements.paperUrl.focus(); return; } const papers = files.map((file) => createImportedPaper({ file, title, subtitle })); if (url) papers.push(createImportedPaper({ url, title, subtitle })); activeProject().papers.unshift(...papers); saveState(); elements.importDialog.close(); renderLibrary(); });
 elements.paperSearch.addEventListener("input", (event) => { paperSearchValue = event.target.value; renderLibrary(); });
 elements.paperStatusFilters.addEventListener("click", (event) => { const button = event.target.closest("[data-status]"); if (!button) return; paperStatusFilter = button.dataset.status; elements.paperStatusFilters.querySelectorAll(".paper-filter").forEach((item) => item.classList.toggle("is-active", item === button)); renderLibrary(); });
+elements.batchAnalyzeButton.addEventListener("click", () => enqueueBatchAnalysis([...selectedPaperIds]));
 elements.closeDetailButton.addEventListener("click", () => elements.paperDetailDialog.close());
 elements.detailReanalyzeButton.addEventListener("click", () => { const paper = activeProject().papers.find((item) => item.id === detailPaperId); if (paper) analyzePaper(paper.id); });
+elements.toggleAgentPanel.addEventListener("click", () => setAgentPanel(true));
+elements.closeAgentPanel.addEventListener("click", () => setAgentPanel(false));
+elements.agentComposer.addEventListener("submit", submitAgentSuggestion);
+elements.applyAgentSuggestion.addEventListener("click", applySuggestion);
 elements.detailPdfButton.addEventListener("click", () => { const paper = activeProject().papers.find((item) => item.id === detailPaperId); if (paper) showEvidence({ label: "论文原文", text: paper.pdfName ? `${paper.pdfName} 已保存到当前文献记录中。` : "当前原型仅保存文献元数据，后续接入 PDF 查看器。", page: "PDF" }); });
 elements.detailExportButton.addEventListener("click", exportPaper);
 elements.closeEvidenceButton.addEventListener("click", () => elements.evidenceDialog.close());
@@ -273,8 +289,323 @@ function paperFromServer(data) {
 async function backendRequest(path, options = {}) {
   const response = await fetch(`${BACKEND_API_BASE}${path}`, options);
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.detail || `后端请求失败：HTTP ${response.status}`);
+  if (!response.ok) {
+    const detail = body.detail;
+    const error = new Error(typeof detail === 'string' ? detail : detail?.message || `后端请求失败：HTTP ${response.status}`);
+    error.status = response.status;
+    error.detail = detail;
+    throw error;
+  }
   return body;
+}
+
+function renderAgentSettingsFields() {
+  const protocol = elements.agentProtocol.value;
+  const usesCodex = protocol === 'codex' || protocol === 'codex_cli';
+  elements.agentApiBaseGroup.hidden = usesCodex;
+  elements.codexSettingsGroup.hidden = !usesCodex;
+  elements.agentKeyState.textContent = agentConfig?.api_key_configured ? `已配置 · ${agentConfig.api_key_source === 'browser' ? '本次会话' : agentConfig.api_key_source}` : '未配置';
+}
+
+function fillAgentSettings(config) {
+  agentConfig = config;
+  elements.agentProtocol.value = config.protocol === 'codex_cli' ? 'codex' : config.protocol || 'codex';
+  elements.agentApiBase.value = config.api_base_url || '';
+  elements.agentModel.value = config.model || '';
+  elements.agentApiKey.value = '';
+  elements.clearAgentKey.checked = false;
+  elements.codexExecutable.value = config.codex_executable || 'codex';
+  elements.codexModel.value = config.codex_model || '';
+  elements.agentSettingsStatus.textContent = config.api_key_configured ? `当前已配置 Agent（${config.api_key_source}）。密钥不会回显。` : '尚未配置 API Key；Codex CLI 可使用本机登录状态。';
+  renderAgentSettingsFields();
+}
+
+async function loadAgentSettings() {
+  try {
+    fillAgentSettings(await backendRequest('/agent-config'));
+  } catch (error) {
+    elements.agentSettingsStatus.textContent = `无法读取 Agent 配置：${error.message}`;
+  }
+}
+
+async function saveAgentSettings(event) {
+  event.preventDefault();
+  const submitButton = elements.saveAgentSettingsButton;
+  submitButton.disabled = true;
+  const payload = {
+    protocol: elements.agentProtocol.value,
+    api_base_url: elements.agentApiBase.value.trim(),
+    model: elements.agentModel.value.trim(),
+    codex_executable: elements.codexExecutable.value.trim(),
+    codex_model: elements.codexModel.value.trim(),
+    clear_api_key: elements.clearAgentKey.checked,
+  };
+  const apiKey = elements.agentApiKey.value.trim();
+  if (apiKey) payload.api_key = apiKey;
+  try {
+    const result = await backendRequest('/agent-config', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    fillAgentSettings(result);
+    elements.agentSettingsDialog.close();
+    setSaveStatus('Agent 设置已更新');
+  } catch (error) {
+    elements.agentSettingsStatus.textContent = error.message;
+    setSaveStatus(error.message, true);
+  } finally {
+    submitButton.disabled = false;
+  }
+}
+
+function taskSummaryForPaper(tasks, paperId) {
+  const latest = new Map();
+  tasks.filter((task) => task.paper_id === paperId && task.operation === 'generate').forEach((task) => {
+    const previous = latest.get(task.section);
+    if (!previous || String(task.created_at || '') > String(previous.created_at || '')) latest.set(task.section, task);
+  });
+  const values = [...latest.values()];
+  if (!values.length) return null;
+  const active = values.filter((task) => ['queued', 'running'].includes(task.status)).length;
+  const done = values.filter((task) => task.status === 'completed').length;
+  const failed = values.filter((task) => task.status === 'failed').length;
+  return { total: values.length, done, failed, active };
+}
+
+function applyTaskSummaries(tasks) {
+  const project = activeProject();
+  savedSuggestions.clear();
+  tasks.filter((task) => task.suggestion_available && task.status === 'completed').reverse().forEach((task) => savedSuggestions.set(`${task.paper_id}:${task.section}`, task));
+  project.papers.forEach((paper) => {
+    paper.taskSummary = taskSummaryForPaper(tasks, paper.id);
+    const summary = paper.taskSummary;
+    if (summary?.active) paper.status = 'analyzing';
+    else if (summary && summary.done === summary.total && summary.failed === 0 && summary.total === detailTabs.length) paper.status = 'analyzed';
+    else if (summary && paper.status === 'analyzing') paper.status = 'pending';
+  });
+  saveState();
+  renderLibrary();
+  if (elements.paperDetailDialog.open) renderAgentTaskState();
+}
+
+function updatePaperStatusFromSections(paper) {
+  const sections = paperSections(paper);
+  const complete = detailTabs.every(([key]) => String(sections[key]?.content || '').trim());
+  if (complete) paper.status = 'analyzed';
+  else if (paper.status === 'analyzing' && !paper.taskSummary?.active) paper.status = 'pending';
+}
+
+function stopTaskPolling() {
+  if (taskStatusPollTimer) window.clearTimeout(taskStatusPollTimer);
+  taskStatusPollTimer = null;
+}
+
+function scheduleTaskPolling(paperIds = []) {
+  stopTaskPolling();
+  const poll = async () => {
+    try {
+      const tasks = await backendRequest('/agent-tasks');
+      applyTaskSummaries(tasks);
+      const active = tasks.some((task) => ['queued', 'running'].includes(task.status));
+      const count = tasks.filter((task) => ['queued', 'running'].includes(task.status)).length;
+      if (count) setSaveStatus(`正在分析 ${count} 项`);
+      if (detailPaperId && elements.paperDetailDialog.open) {
+        const currentTask = activeAgentTaskId ? tasks.find((task) => task.id === activeAgentTaskId) : null;
+        if (currentTask) updateAgentTask(currentTask);
+        if (paperIds.includes(detailPaperId)) void loadPaperSections(detailPaperId, !active);
+      }
+      if (active) taskStatusPollTimer = window.setTimeout(poll, 1200);
+    } catch (error) {
+      setSaveStatus(error.message, true);
+    }
+  };
+  void poll();
+}
+
+async function enqueueBatchAnalysis(paperIds) {
+  const ids = [...new Set(paperIds.filter(Boolean))];
+  if (!ids.length) return;
+  ids.forEach((id) => {
+    const paper = activeProject().papers.find((item) => item.id === id);
+    if (paper) { paper.status = 'analyzing'; paper.error = ''; }
+  });
+  saveState();
+  renderLibrary();
+  try {
+    const result = await backendRequest('/agent-tasks/batch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paper_ids: ids }) });
+    selectedPaperIds.clear(); updateBatchAnalyzeButton();
+    ids.forEach((id) => { const paper = activeProject().papers.find((item) => item.id === id); if (paper && !result.queued) updatePaperStatusFromSections(paper); });
+    setSaveStatus(result.queued ? `已加入 ${result.queued} 项分析任务` : '没有空白栏需要生成');
+    scheduleTaskPolling(ids);
+    if (detailPaperId && ids.includes(detailPaperId) && elements.paperDetailDialog.open) renderPaperDetail();
+    return result;
+  } catch (error) {
+    ids.forEach((id) => { const paper = activeProject().papers.find((item) => item.id === id); if (paper) paper.status = 'pending'; });
+    saveState(); renderLibrary(); setSaveStatus(error.message, true);
+  }
+}
+
+async function loadPaperSections(paperId, rerender = true) {
+  try {
+    const result = await backendRequest(`/papers/${encodeURIComponent(paperId)}/sections`);
+    const paper = activeProject().papers.find((item) => item.id === paperId);
+    if (!paper) return;
+    const sections = result.sections;
+    Object.keys(sections).forEach((sectionKey) => {
+      if (dirtySections.has(`${paperId}:${sectionKey}`)) sections[sectionKey] = paperSections(paper)[sectionKey];
+    });
+    paper.sections = sections;
+    updatePaperStatusFromSections(paper);
+    saveState();
+    if (rerender && detailPaperId === paperId && elements.paperDetailDialog.open && !dirtySections.has(`${paperId}:${detailTab}`)) renderPaperDetail();
+  } catch (error) {
+    setSaveStatus(error.message, true);
+  }
+}
+
+function scheduleSectionSave(paperId, sectionKey) {
+  const paper = activeProject().papers.find((item) => item.id === paperId);
+  const section = paper ? paperSections(paper)[sectionKey] : null;
+  if (!section) return;
+  const key = `${paperId}:${sectionKey}`;
+  section.content = elements.sectionEditorInput.value;
+  section.source = 'user';
+  dirtySections.add(key);
+  elements.sectionEditorStatus.textContent = '保存中…';
+  saveState();
+  if (sectionSaveTimers.has(key)) window.clearTimeout(sectionSaveTimers.get(key));
+  sectionSaveTimers.set(key, window.setTimeout(() => { sectionSaveTimers.delete(key); void persistSection(paperId, sectionKey); }, 650));
+}
+
+async function persistSection(paperId, sectionKey) {
+  const key = `${paperId}:${sectionKey}`;
+  if (sectionSaveTimers.has(key)) { window.clearTimeout(sectionSaveTimers.get(key)); sectionSaveTimers.delete(key); }
+  if (sectionSavesInFlight.has(key)) {
+    try { await sectionSavesInFlight.get(key); } catch { return; }
+    if (dirtySections.has(key)) return persistSection(paperId, sectionKey);
+    return;
+  }
+  if (!dirtySections.has(key)) return;
+  const paper = activeProject().papers.find((item) => item.id === paperId);
+  if (!paper) return;
+  const section = paperSections(paper)[sectionKey];
+  const content = section.content;
+  const request = backendRequest(`/papers/${encodeURIComponent(paperId)}/sections/${encodeURIComponent(sectionKey)}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, base_revision: section.revision || 0 }) });
+  sectionSavesInFlight.set(key, request);
+  let changedDuringSave = false;
+  try {
+    const result = await request;
+    const draft = section.content;
+    Object.assign(section, result.section);
+    if (draft !== content) {
+      section.content = draft;
+      changedDuringSave = true;
+    } else {
+      dirtySections.delete(key);
+      if (detailPaperId === paperId && detailTab === sectionKey) {
+        elements.sectionEditorStatus.textContent = `修订 ${section.revision}`;
+        elements.sectionEditorHint.textContent = `最后保存：${section.updated_at}`;
+      }
+    }
+    saveState(); renderLibrary();
+  } catch (error) {
+    if (error.status === 409 && error.detail?.section) section.revision = error.detail.section.revision;
+    if (detailPaperId === paperId && detailTab === sectionKey) elements.sectionEditorStatus.textContent = '保存冲突，草稿仍在编辑框中';
+    setSaveStatus(error.message, true);
+  } finally {
+    sectionSavesInFlight.delete(key);
+  }
+  if (changedDuringSave) return persistSection(paperId, sectionKey);
+}
+
+function renderAgentTaskState() {
+  if (!activeAgentTaskId || activeAgentPaperId !== detailPaperId || activeAgentSection !== detailTab) {
+    const suggestion = savedSuggestions.get(`${detailPaperId}:${detailTab}`);
+    if (suggestion && (!activeAgentTaskId || activeAgentPaperId !== detailPaperId || activeAgentSection !== detailTab)) {
+      activeAgentTaskId = suggestion.id;
+      activeAgentPaperId = suggestion.paper_id;
+      activeAgentSection = suggestion.section;
+      activeAgentTask = suggestion;
+      pendingOverrideRevision = null;
+    }
+  }
+  if (!activeAgentTaskId || activeAgentPaperId !== detailPaperId || activeAgentSection !== detailTab) {
+    elements.agentTaskState.hidden = true;
+    elements.agentSuggestion.hidden = true;
+    return;
+  }
+  if (activeAgentTask) updateAgentTask(activeAgentTask);
+}
+
+function updateAgentTask(task) {
+  if (!task || task.id !== activeAgentTaskId) return;
+  activeAgentTask = task;
+  if (activeAgentPaperId !== detailPaperId || activeAgentSection !== detailTab) return;
+  elements.agentTaskState.hidden = false;
+  elements.agentTaskState.textContent = task.status === 'queued' ? '已加入队列，等待 Agent 处理…' : task.status === 'running' ? 'Agent 正在核对论文并生成建议…' : task.status === 'failed' ? `生成失败：${task.error || '未知错误'}` : '建议已生成，请查看后应用。';
+  elements.agentSendButton.disabled = ['queued', 'running'].includes(task.status);
+  if (task.status === 'completed' && task.suggestion_available) {
+    elements.agentSuggestionInput.value = task.result || '';
+    elements.agentSuggestion.hidden = false;
+    elements.applyAgentSuggestion.textContent = pendingOverrideRevision === null ? '应用建议' : '确认覆盖当前栏';
+  } else if (task.status !== 'completed') elements.agentSuggestion.hidden = true;
+  if (task.status === 'completed' || task.status === 'failed') setSaveStatus(task.status === 'completed' ? 'Agent 建议已生成' : task.error || 'Agent 任务失败', task.status === 'failed');
+}
+
+async function submitAgentSuggestion(event) {
+  event.preventDefault();
+  const paper = activeProject().papers.find((item) => item.id === detailPaperId);
+  const section = paper ? paperSections(paper)[detailTab] : null;
+  const instruction = elements.agentPrompt.value.trim();
+  if (!paper || !section || !instruction) return;
+  const sectionKey = detailTab;
+  await persistSection(paper.id, sectionKey);
+  if (dirtySections.has(`${paper.id}:${sectionKey}`)) { setSaveStatus('请先处理未保存的编辑，再让 Agent 修改', true); return; }
+  elements.agentSendButton.disabled = true;
+  elements.agentSuggestion.hidden = true;
+  try {
+    const result = await backendRequest(`/papers/${encodeURIComponent(paper.id)}/sections/${encodeURIComponent(sectionKey)}/suggest`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instruction, base_revision: section.revision || 0 }) });
+    activeAgentTaskId = result.task.id;
+    activeAgentPaperId = paper.id;
+    activeAgentSection = sectionKey;
+    pendingOverrideRevision = null;
+    elements.agentPrompt.value = '';
+    updateAgentTask(result.task);
+    scheduleTaskPolling([paper.id]);
+  } catch (error) {
+    elements.agentSendButton.disabled = false;
+    setSaveStatus(error.message, true);
+  }
+}
+
+async function applySuggestion() {
+  if (!activeAgentTaskId) return;
+  await persistSection(activeAgentPaperId, activeAgentSection);
+  if (dirtySections.has(`${activeAgentPaperId}:${activeAgentSection}`)) {
+    setSaveStatus('请先处理未保存的编辑，再应用建议', true);
+    return;
+  }
+  try {
+    const result = await backendRequest(`/agent-tasks/${encodeURIComponent(activeAgentTaskId)}/apply`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ expected_revision: pendingOverrideRevision }) });
+    const paper = activeProject().papers.find((item) => item.id === result.section.paper_id);
+    const appliedSectionKey = result.section.section || detailTab;
+    if (paper) paper.sections[appliedSectionKey] = result.section;
+    elements.agentSuggestion.hidden = true;
+    activeAgentTaskId = null;
+    activeAgentTask = null;
+    pendingOverrideRevision = null;
+    savedSuggestions.delete(`${result.section.paper_id}:${appliedSectionKey}`);
+    saveState(); renderPaperDetail(); renderLibrary(); setSaveStatus('建议已应用');
+  } catch (error) {
+    if (error.status === 409 && error.detail?.section) {
+      const paper = activeProject().papers.find((item) => item.id === error.detail.section.paper_id);
+      if (paper && !dirtySections.has(`${paper.id}:${error.detail.section.section}`)) paper.sections[error.detail.section.section] = error.detail.section;
+      pendingOverrideRevision = error.detail.section.revision;
+      elements.agentTaskState.textContent = '这一栏已有更新。请对照当前正文和建议，再决定是否覆盖。';
+      elements.applyAgentSuggestion.textContent = '确认覆盖当前栏';
+      elements.agentSuggestion.hidden = false;
+      setSaveStatus('建议未覆盖你的修改', true);
+      return;
+    }
+    setSaveStatus(error.message, true);
+  }
 }
 
 async function hydrateServerPapers() {
@@ -295,29 +626,7 @@ async function hydrateServerPapers() {
 }
 
 async function analyzePaper(id) {
-  const paper = activeProject().papers.find((item) => item.id === id);
-  if (!paper || paper.status === 'analyzing') return;
-  paper.status = 'analyzing';
-  paper.error = '';
-  saveState();
-  renderLibrary();
-  if (detailPaperId === id && elements.paperDetailDialog.open) renderPaperDetail();
-  try {
-    const result = await backendRequest(`/papers/${encodeURIComponent(id)}/analyze`, { method: 'POST' });
-    Object.assign(paper, result);
-    paper.id = id;
-    saveState();
-    renderLibrary();
-    if (detailPaperId === id && elements.paperDetailDialog.open) renderPaperDetail();
-    setSaveStatus('分析结果已保存到 data');
-  } catch (error) {
-    paper.status = 'pending';
-    paper.error = error.message;
-    saveState();
-    renderLibrary();
-    if (detailPaperId === id && elements.paperDetailDialog.open) renderPaperDetail();
-    setSaveStatus(error.message, true);
-  }
+  return enqueueBatchAnalysis([id]);
 }
 
 elements.importForm.addEventListener('submit', async (event) => {
@@ -361,6 +670,7 @@ elements.detailPdfButton.addEventListener('click', (event) => {
 }, true);
 
 void hydrateServerPapers();
+scheduleTaskPolling();
 function analysisValue(value, fallback = '未找到') {
   return escapeHtml(value === undefined || value === null || value === '' ? fallback : value);
 }
@@ -398,11 +708,20 @@ function renderDetailTab(analysis, tab) {
   return `<div class='detail-section'><h3>研究启发与后续计划</h3><div class='contribution-list'>${analysisArray(analysis.inspiration).map((item) => `<section class='contribution-item'><span class='contribution-number'>${analysisValue(item.priority)}</span><div><h3>${analysisValue(item.idea)}</h3><p>研究缺口：${analysisValue(item.gap)}</p><p>理由：${analysisValue(item.rationale)}</p><p>验证方案：${analysisValue(item.experiment)}</p><small>风险：${analysisValue(item.risk)}</small>${analysisEvidenceButton(item.evidence || 0, evidence)}</div></section>`).join('')}</div></div>`;
 }
 function makePaper(data = {}) {
-  const paper = { id: data.id || `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, title: data.title || '未命名文献', subtitle: data.subtitle || '等待补充论文副标题', authors: data.authors || '待补充作者信息', venue: data.venue || 'PDF 文献', year: String(data.year || ''), tags: data.tags || ['待整理'], summary: data.summary || '这篇论文已保存，点击 AI 分析后生成结构化摘要。', status: data.status || 'pending', source: data.source || '', pdfName: data.pdfName || '', title_customized: Boolean(data.title_customized), subtitle_customized: Boolean(data.subtitle_customized), analysis: data.analysis || null, error: data.error || '' };
-  if (paper.status === 'analyzed' && !paper.analysis) paper.analysis = makeAnalysis(paper);
+  const paper = { id: data.id || `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, title: data.title || '未命名文献', subtitle: data.subtitle || '等待补充论文副标题', authors: data.authors || '待补充作者信息', venue: data.venue || 'PDF 文献', year: String(data.year || ''), tags: data.tags || ['待整理'], summary: data.summary || '这篇论文已保存，点击生成八项分析后填充空白栏。', status: data.status || 'pending', source: data.source || '', pdfName: data.pdfName || '', title_customized: Boolean(data.title_customized), subtitle_customized: Boolean(data.subtitle_customized), analysis: data.analysis || null, sections: data.sections || null, taskSummary: data.taskSummary || null, error: data.error || '' };
   return paper;
 }
 function updateSelectedFileNames() {
   const names = [...elements.paperFileInput.files].map((file) => file.name);
   elements.selectedFileNames.textContent = names.length ? names.join('、') : '支持 PDF，文件会保存到 data';
 }
+
+elements.agentSettingsButton.addEventListener('click', async () => {
+  await loadAgentSettings();
+  elements.agentSettingsDialog.showModal();
+});
+elements.closeAgentSettingsButton.addEventListener('click', () => elements.agentSettingsDialog.close());
+elements.cancelAgentSettingsButton.addEventListener('click', () => elements.agentSettingsDialog.close());
+elements.agentSettingsForm.addEventListener('submit', saveAgentSettings);
+elements.agentProtocol.addEventListener('change', renderAgentSettingsFields);
+void loadAgentSettings();

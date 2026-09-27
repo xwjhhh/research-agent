@@ -1,0 +1,17 @@
+{
+  "id": "c33c3551203f42ff999399eca00c29a4",
+  "paper_id": "313a48576b92473a8f6bbd480c27d42f",
+  "section": "method",
+  "section_label": "方法",
+  "operation": "generate",
+  "instruction": "",
+  "source_content": "",
+  "base_revision": 0,
+  "status": "failed",
+  "result": "",
+  "auto_applied": false,
+  "suggestion_available": false,
+  "error": "调用 Responses API 失败：Server disconnected without sending a response.",
+  "created_at": "2026-09-27T12:35:23.321336",
+  "updated_at": "2026-09-27T12:37:29"
+}

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import json
 import os
@@ -10,9 +11,9 @@ from typing import Any
 
 import httpx
 try:
-    from .prompts import ANALYSIS_SCHEMA, ANALYSIS_SYSTEM_PROMPT, build_analysis_prompt
+    from .prompts import ANALYSIS_SCHEMA, ANALYSIS_SYSTEM_PROMPT, SECTION_RESPONSE_SCHEMA, build_analysis_prompt, build_section_prompt
 except ImportError:
-    from prompts import ANALYSIS_SCHEMA, ANALYSIS_SYSTEM_PROMPT, build_analysis_prompt
+    from prompts import ANALYSIS_SCHEMA, ANALYSIS_SYSTEM_PROMPT, SECTION_RESPONSE_SCHEMA, build_analysis_prompt, build_section_prompt
 
 
 
@@ -45,13 +46,16 @@ def _index(value: Any, length: int) -> int:
 class PaperQACompatibleAdapter:
     '''Extract, retrieve, and analyze a paper through a configurable API.'''
 
-    def __init__(self, data_dir: Path) -> None:
+    def __init__(self, data_dir: Path, config: dict[str, str] | None = None) -> None:
         self.data_dir = data_dir
-        self.api_base = os.getenv('LLM_API_BASE_URL', 'https://api.openai.com/v1').rstrip('/')
-        self.protocol = os.getenv('LLM_API_PROTOCOL', 'chat_completions').strip().lower()
+        config = config or {}
+        self.api_base = config.get('api_base_url', os.getenv('LLM_API_BASE_URL', 'https://api.openai.com/v1')).rstrip('/')
+        self.protocol = config.get('protocol', os.getenv('LLM_API_PROTOCOL', 'chat_completions')).strip().lower()
         self.api_key_env = os.getenv('LLM_API_KEY_ENV', '').strip()
-        self.api_key = os.getenv('LLM_API_KEY') or os.getenv(self.api_key_env, '') or os.getenv('OPENAI_API_KEY', '')
-        self.model = os.getenv('LLM_MODEL', 'gpt-4o-mini')
+        self.api_key = config.get('api_key', os.getenv('LLM_API_KEY') or os.getenv(self.api_key_env, '') or os.getenv('OPENAI_API_KEY', ''))
+        self.model = config.get('model', os.getenv('LLM_MODEL', 'gpt-4o-mini'))
+        self.codex_executable = config.get('codex_executable', os.getenv('CODEX_EXECUTABLE', 'codex')).strip() or 'codex'
+        self.codex_model = config.get('codex_model', os.getenv('CODEX_MODEL', '')).strip()
         self.reasoning_effort = os.getenv('LLM_REASONING_EFFORT', '').strip()
         self.disable_response_storage = os.getenv('LLM_DISABLE_RESPONSE_STORAGE', 'false').strip().lower() in ('1', 'true', 'yes', 'on')
         self.responses_path = os.getenv('LLM_RESPONSES_PATH', '/responses').strip()
@@ -68,6 +72,19 @@ class PaperQACompatibleAdapter:
         context = self._build_retrieval_context(pages)
         raw = await self._complete_json(build_analysis_prompt(context, document_name))
         return self._normalise_analysis(raw, pages)
+
+    async def analyze_section(self, document_path: Path, document_name: str, section: str, current_content: str = '', instruction: str = '', source_url: str = '') -> str:
+        pages = self._extract_pages(document_path)
+        if not pages and source_url:
+            pages = [{'page': 'Source URL', 'text': source_url}]
+        if not pages:
+            raise AnalysisAdapterError('没有从文献中提取到可分析的文本，请确认文件是可复制文本的 PDF。')
+        context = self._build_retrieval_context(pages)
+        raw = await self._complete_json(build_section_prompt(context, document_name, section, current_content, instruction), SECTION_RESPONSE_SCHEMA)
+        content = raw.get('content') if isinstance(raw, dict) else ''
+        if not isinstance(content, str) or not content.strip():
+            raise AnalysisAdapterError('Agent 没有返回可保存的栏内容。')
+        return content.strip()
 
     def _extract_pages(self, path: Path) -> list[dict[str, str]]:
         pages: list[dict[str, str]] = []
@@ -126,7 +143,7 @@ class PaperQACompatibleAdapter:
         selected.sort(key=lambda item: item['order'])
         return chr(10).join(self._format_context_item(item) for item in selected)
 
-    async def _complete_responses_json(self, user_prompt: str) -> dict[str, Any]:
+    async def _complete_responses_json(self, user_prompt: str, schema: str = ANALYSIS_SCHEMA) -> dict[str, Any]:
         headers = {'Content-Type': 'application/json'}
         if self.api_key:
             headers['Authorization'] = f'Bearer {self.api_key}'
@@ -134,7 +151,7 @@ class PaperQACompatibleAdapter:
         payload: dict[str, Any] = {
             'model': self.model,
             'instructions': ANALYSIS_SYSTEM_PROMPT,
-            'input': f'{user_prompt}{chr(10)}{chr(10)}{ANALYSIS_SCHEMA}',
+            'input': f'{user_prompt}{chr(10)}{chr(10)}{schema}',
             'max_output_tokens': 14000,
             'store': not self.disable_response_storage,
             'text': {'format': {'type': 'json_object'}},
@@ -183,13 +200,15 @@ class PaperQACompatibleAdapter:
     def _format_context_item(item: dict[str, Any]) -> str:
         return '[' + item['page'] + ']' + chr(10) + item['text']
 
-    async def _complete_json(self, user_prompt: str) -> dict[str, Any]:
+    async def _complete_json(self, user_prompt: str, schema: str = ANALYSIS_SCHEMA) -> dict[str, Any]:
+        if self.protocol in ('codex', 'codex_cli'):
+            return await self._complete_codex_json(user_prompt, schema)
         is_local = any(host in self.api_base for host in ('localhost', '127.0.0.1', '0.0.0.0'))
         if not self.api_key and not is_local:
             source = self.api_key_env or 'LLM_API_KEY'
             raise AnalysisAdapterError(f'未配置 {source}。请检查 backend/.env，或配置本地 OpenAI 兼容服务。')
         if self.protocol in ('responses', 'response'):
-            return await self._complete_responses_json(user_prompt)
+            return await self._complete_responses_json(user_prompt, schema)
         headers = {'Content-Type': 'application/json'}
         if self.api_key:
             headers['Authorization'] = f'Bearer {self.api_key}'
@@ -197,7 +216,7 @@ class PaperQACompatibleAdapter:
             'model': self.model,
             'messages': [
                 {'role': 'system', 'content': ANALYSIS_SYSTEM_PROMPT},
-                {'role': 'user', 'content': f'{user_prompt}{chr(10)}{chr(10)}{ANALYSIS_SCHEMA}'},
+                {'role': 'user', 'content': f'{user_prompt}{chr(10)}{chr(10)}{schema}'},
             ],
             'temperature': 0.1,
             'max_tokens': 14000,
@@ -221,6 +240,56 @@ class PaperQACompatibleAdapter:
             return self._parse_json(_text(content))
         except (KeyError, IndexError, TypeError, ValueError) as exc:
             raise AnalysisAdapterError(f'LLM 返回内容不是有效的结构化 JSON：{response.text[:800]}') from exc
+
+    async def _complete_codex_json(self, user_prompt: str, schema: str) -> dict[str, Any]:
+        executable = self.codex_executable
+        command = [
+            executable, 'exec', '--json', '--color', 'never', '--sandbox', 'read-only',
+            '--ephemeral', '--skip-git-repo-check', '-C', str(self.data_dir),
+            '-c', 'approval_policy="never"',
+        ]
+        if self.codex_model:
+            command.extend(['--model', self.codex_model])
+        command.append('-')
+        prompt = f'{ANALYSIS_SYSTEM_PROMPT}\n\n{user_prompt}\n\n{schema}\n\nOnly return the requested JSON object. Do not modify files or execute commands.'
+        try:
+            environment = os.environ.copy()
+            if self.api_key:
+                environment['CODEX_API_KEY'] = self.api_key
+                environment['OPENAI_API_KEY'] = self.api_key
+            process = await asyncio.create_subprocess_exec(
+                *command, stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+                env=environment,
+            )
+            try:
+                stdout, stderr = await asyncio.wait_for(process.communicate(prompt.encode('utf-8')), self.timeout)
+            except TimeoutError as exc:
+                process.kill()
+                await process.communicate()
+                raise AnalysisAdapterError('Codex 任务超时，请稍后重试。') from exc
+        except OSError as exc:
+            raise AnalysisAdapterError(f'无法启动 Codex CLI：{exc}。请安装 Codex 或设置 CODEX_EXECUTABLE。') from exc
+        messages = []
+        failure = ''
+        for line in stdout.decode('utf-8', errors='replace').splitlines():
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if event.get('type') == 'item.completed' and event.get('item', {}).get('type') == 'agent_message':
+                messages.append(event['item'].get('text', ''))
+            if event.get('type') == 'turn.failed':
+                failure = event.get('error', {}).get('message', '')
+            if event.get('type') == 'error':
+                failure = event.get('message', '')
+        if process.returncode or failure or not messages:
+            reason = failure or stderr.decode('utf-8', errors='replace').strip()[-500:] or '未返回结果'
+            raise AnalysisAdapterError(f'Codex 分析失败：{reason}')
+        try:
+            return self._parse_json(messages[-1])
+        except (TypeError, ValueError) as exc:
+            raise AnalysisAdapterError('Codex 没有返回有效的 JSON 栏内容。') from exc
 
     @staticmethod
     def _parse_json(content: str) -> dict[str, Any]:

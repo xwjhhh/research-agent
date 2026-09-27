@@ -1,0 +1,17 @@
+{
+  "id": "acdc9ccdede5430d8d1a95e41c98e556",
+  "paper_id": "313a48576b92473a8f6bbd480c27d42f",
+  "section": "inspiration",
+  "section_label": "研究启发",
+  "operation": "generate",
+  "instruction": "",
+  "source_content": "",
+  "base_revision": 0,
+  "status": "failed",
+  "result": "",
+  "auto_applied": false,
+  "suggestion_available": false,
+  "error": "Responses API 返回 HTTP 503：{\"error\":{\"message\":\"Service temporarily unavailable\",\"type\":\"api_error\"}}",
+  "created_at": "2026-09-27T12:35:23.322364",
+  "updated_at": "2026-09-27T12:37:34"
+}

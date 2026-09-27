@@ -35,7 +35,10 @@
             <select id="projectSelect"></select>
             <button id="newProjectButton" class="icon-button" type="button" aria-label="新建项目" title="新建项目">+</button>
           </div>
-          <div id="saveStatus" class="save-status" role="status"><span class="status-dot"></span>已保存至本地</div>
+          <div class="topbar-actions">
+            <button id="agentSettingsButton" class="text-button" type="button">Agent 设置</button>
+            <div id="saveStatus" class="save-status" role="status"><span class="status-dot"></span>已保存至本地</div>
+          </div>
         </header>
 
         <main class="content">
@@ -75,26 +78,33 @@
                 </div>
                 <div class="library-header-actions">
                   <button id="addLibraryTaskButton" class="text-button" type="button">+ 添加小标题</button>
+                  <button id="batchAnalyzeButton" class="text-button" type="button" disabled>生成八项分析</button>
                   <button id="importPaperButton" class="footer-button footer-button-primary" type="button">+ 导入文献</button>
                 </div>
               </div>
 
-              <div class="library-stats" aria-label="文献统计">
-                <div class="library-stat"><span>已保存</span><strong id="savedPaperCount">0</strong></div>
-                <div class="library-stat"><span>已分析</span><strong id="analyzedPaperCount">0</strong></div>
-                <div class="library-stat"><span>待分析</span><strong id="pendingPaperCount">0</strong></div>
-              </div>
+              <details class="library-stats-disclosure">
+                <summary>查看文献状态</summary>
+                <div class="library-stats" aria-label="文献统计">
+                  <div class="library-stat"><span>已保存</span><strong id="savedPaperCount">0</strong></div>
+                  <div class="library-stat"><span>已分析</span><strong id="analyzedPaperCount">0</strong></div>
+                  <div class="library-stat"><span>待分析</span><strong id="pendingPaperCount">0</strong></div>
+                </div>
+              </details>
 
               <div class="library-toolbar">
                 <label class="paper-search">
                   <span aria-hidden="true">⌕</span>
                   <input id="paperSearch" type="search" placeholder="搜索标题 / 作者 / 关键词" autocomplete="off" />
                 </label>
-                <div id="paperStatusFilters" class="paper-filters" role="group" aria-label="文献状态筛选">
-                  <button class="paper-filter is-active" type="button" data-status="all">全部</button>
-                  <button class="paper-filter" type="button" data-status="analyzed">已分析</button>
-                  <button class="paper-filter" type="button" data-status="pending">待分析</button>
-                </div>
+                <details class="library-filter-disclosure">
+                  <summary>筛选</summary>
+                  <div id="paperStatusFilters" class="paper-filters" role="group" aria-label="文献状态筛选">
+                    <button class="paper-filter is-active" type="button" data-status="all">全部</button>
+                    <button class="paper-filter" type="button" data-status="analyzed">已分析</button>
+                    <button class="paper-filter" type="button" data-status="pending">待分析</button>
+                  </div>
+                </details>
               </div>
 
               <div id="libraryTaskStrip" class="library-task-strip" aria-label="自定义小标题" hidden></div>
@@ -109,7 +119,7 @@
                 <h2 id="methodDesignTitle">方法设计</h2>
                 <p>从论文证据出发，把研究 Gap 逐步变成可验证的方法。</p>
               </div>
-              <button id="methodAssistButton" class="footer-button footer-button-primary" type="button">✦ AI 辅助设计</button>
+              <button id="methodAssistButton" class="footer-button footer-button-primary" type="button">让 Agent 帮我梳理</button>
             </div>
 
             <div id="methodStepper" class="method-stepper" aria-label="方法设计八个维度"></div>
@@ -179,7 +189,10 @@
                   <span id="taskProgress" class="task-progress">0 / 3</span>
                 </div>
                 <div id="taskList" class="task-list"></div>
-                <div class="tools-area"><div class="tools-label">参考工具</div><div id="toolList" class="tool-list"></div></div>
+                <details class="tools-disclosure">
+                  <summary>参考工具</summary>
+                  <div id="toolList" class="tool-list"></div>
+                </details>
               </section>
 
               <section class="panel files-panel" aria-labelledby="filesTitle">
@@ -228,7 +241,7 @@
           <span class="drop-icon" aria-hidden="true">↑</span>
           <strong>拖入 PDF 文件</strong>
           <span>或点击选择文件</span>
-          <small id="selectedFileNames">支持 PDF，文件内容暂不上传</small>
+          <small id="selectedFileNames">支持 PDF，文件会保存到本地 data</small>
         </label>
         <div class="import-custom-fields">
           <div class="import-field-group">
@@ -251,6 +264,54 @@
       </form>
     </dialog>
 
+    <dialog id="agentSettingsDialog" class="agent-settings-dialog" aria-labelledby="agentSettingsTitle">
+      <form id="agentSettingsForm" novalidate>
+        <div class="dialog-header-row">
+          <div><div class="panel-kicker">AGENT RUNTIME</div><h2 id="agentSettingsTitle">Agent 设置</h2></div>
+          <button id="closeAgentSettingsButton" class="modal-close" type="button" aria-label="关闭">×</button>
+        </div>
+        <p class="settings-note">配置只保存在当前后端进程内，不写入浏览器存储或项目文件。</p>
+        <div class="agent-settings-fields">
+          <div class="import-field-group">
+            <label for="agentProtocol">运行方式</label>
+            <select id="agentProtocol">
+              <option value="codex">本机 Codex CLI</option>
+              <option value="responses">Responses API</option>
+              <option value="chat_completions">OpenAI-compatible API</option>
+            </select>
+          </div>
+          <div id="agentApiBaseGroup" class="import-field-group">
+            <label for="agentApiBase">API Base URL</label>
+            <input id="agentApiBase" type="url" placeholder="https://api.openai.com/v1" autocomplete="off" />
+          </div>
+          <div class="import-field-group">
+            <label for="agentModel">模型</label>
+            <input id="agentModel" type="text" placeholder="例如：gpt-4o-mini" autocomplete="off" />
+          </div>
+          <div class="import-field-group">
+            <label for="agentApiKey">API Key <span id="agentKeyState" class="settings-field-state"></span></label>
+            <input id="agentApiKey" type="password" placeholder="留空则保持当前配置" autocomplete="new-password" />
+          </div>
+          <label class="settings-checkbox"><input id="clearAgentKey" type="checkbox" /> 清除当前 API Key</label>
+          <div id="codexSettingsGroup" class="codex-settings-group">
+            <div class="import-field-group">
+              <label for="codexExecutable">Codex 可执行文件</label>
+              <input id="codexExecutable" type="text" placeholder="codex" autocomplete="off" />
+            </div>
+            <div class="import-field-group">
+              <label for="codexModel">Codex 模型（可选）</label>
+              <input id="codexModel" type="text" placeholder="留空使用 Codex 默认模型" autocomplete="off" />
+            </div>
+          </div>
+        </div>
+        <p id="agentSettingsStatus" class="settings-status" role="status"></p>
+        <div class="dialog-actions">
+          <button id="cancelAgentSettingsButton" class="footer-button footer-button-secondary" type="button">取消</button>
+          <button id="saveAgentSettingsButton" class="footer-button footer-button-primary" type="submit">保存设置</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="paperDetailDialog" class="paper-detail-dialog" aria-labelledby="paperDetailTitle">
       <div class="paper-detail-shell">
         <div class="detail-topbar">
@@ -267,12 +328,47 @@
           </div>
           <div class="detail-actions">
             <button id="detailPdfButton" class="footer-button footer-button-secondary" type="button">查看 PDF</button>
-            <button id="detailReanalyzeButton" class="footer-button footer-button-primary" type="button">重新分析</button>
+            <button id="detailReanalyzeButton" class="footer-button footer-button-primary" type="button">生成八项分析</button>
             <button id="detailExportButton" class="footer-button footer-button-secondary" type="button">导出</button>
           </div>
         </header>
-        <nav id="paperDetailTabs" class="paper-detail-tabs" aria-label="论文分析维度"></nav>
-        <article id="paperDetailContent" class="paper-detail-content"></article>
+        <div class="paper-analysis-layout">
+          <aside class="analysis-section-sidebar">
+            <div class="analysis-section-sidebar-title">八项分析</div>
+            <nav id="paperDetailTabs" class="paper-detail-tabs" aria-label="论文分析维度"></nav>
+          </aside>
+          <main class="analysis-editor-column">
+            <div class="analysis-editor-toolbar">
+              <span id="sectionEditorStatus">选择一个维度开始编辑</span>
+              <button id="toggleAgentPanel" class="text-button" type="button">让 Agent 修改</button>
+            </div>
+            <article id="paperDetailContent" class="paper-detail-content">
+              <div class="section-editor-heading">
+                <h3 id="sectionEditorLabel">概览</h3>
+                <span id="sectionEditorSource"></span>
+              </div>
+              <textarea id="sectionEditorInput" class="section-editor-input" placeholder="这一栏还没有内容。可以直接输入，或让 Agent 先生成。"></textarea>
+              <p id="sectionEditorHint" class="section-editor-hint">内容会自动保存。</p>
+            </article>
+          </main>
+          <aside id="agentPanel" class="agent-panel" hidden>
+            <div class="agent-panel-header">
+              <div><span class="agent-panel-mark">✦</span><h3>Agent</h3></div>
+              <button id="closeAgentPanel" class="modal-close" type="button" aria-label="关闭 Agent 面板">×</button>
+            </div>
+            <p id="agentPanelContext" class="agent-panel-context">针对当前分析维度提出修改要求。</p>
+            <form id="agentComposer" class="agent-composer">
+              <input id="agentPrompt" type="text" maxlength="240" placeholder="例如：补充训练成本，并核对原文" autocomplete="off" />
+              <button id="agentSendButton" class="text-button" type="submit">发送</button>
+            </form>
+            <div id="agentTaskState" class="agent-task-state" hidden></div>
+            <div id="agentSuggestion" class="agent-suggestion" hidden>
+              <div class="agent-suggestion-label">修改建议</div>
+              <textarea id="agentSuggestionInput" readonly></textarea>
+              <button id="applyAgentSuggestion" class="footer-button footer-button-primary" type="button">应用建议</button>
+            </div>
+          </aside>
+        </div>
       </div>
     </dialog>
 

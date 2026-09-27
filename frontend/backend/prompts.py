@@ -1,7 +1,7 @@
 '''Structured prompts for the literature analysis adapter.'''
 
 SECTION_PROMPTS = {
-    'metadata': 'Extract title, subtitle, all authors, year, venue, DOI, URL, keywords, paper type, and original abstract. Prefer the paper itself over filename guesses; use empty values when unverified.',
+    'overview': 'Summarize the paper in useful research notes: goal, approach, main findings, and what remains uncertain. Include title, authors, and venue only when verified in the source.',
     'question': 'Explain the background, precise research question, importance, scope, assumptions, and prior-work gap. Separate author motivation from your own suggestions.',
     'contributions': 'List 3 to 6 substantive contributions. Explain what was introduced, the closest comparison, why it matters, confidence, and strongest evidence.',
     'method': 'Reconstruct the method for implementation: overview, steps, inputs, outputs, components, algorithms, equations, losses, training, inference, hyperparameters, complexity, and implementation details.',
@@ -10,6 +10,19 @@ SECTION_PROMPTS = {
     'limitations': 'Identify author-acknowledged and evidence-visible limitations. Explain impact, conditions, severity, and evidence. Label inference as 分析推断.',
     'inspiration': 'Give 4 to 8 actionable follow-up ideas with gap, rationale, experiment, risk, and priority. Keep suggestions separate from paper claims.',
 }
+
+ANALYSIS_SECTION_LABELS = {
+    'overview': '概览',
+    'question': '研究问题',
+    'contributions': '核心贡献',
+    'method': '方法',
+    'experiment': '实验',
+    'results': '结果',
+    'limitations': '局限性',
+    'inspiration': '研究启发',
+}
+
+ANALYSIS_SECTION_KEYS = tuple(ANALYSIS_SECTION_LABELS)
 
 ANALYSIS_SYSTEM_PROMPT = chr(10).join([
     'You are a meticulous scientific literature analyst. Analyze only the supplied document context.',
@@ -39,7 +52,35 @@ ANALYSIS_SCHEMA = chr(10).join([
     'Do not omit keys. Arrays may be empty. Cross-check every number and evidence index.',
 ])
 
+SECTION_RESPONSE_SCHEMA = chr(10).join([
+    'Return one JSON object with exactly one top-level key: content.',
+    'content = a concise but useful Chinese research note in plain text or Markdown.',
+])
+
 
 def build_analysis_prompt(context: str, document_name: str) -> str:
     sections = chr(10).join(f'### {name}{chr(10)}{instruction}' for name, instruction in SECTION_PROMPTS.items())
     return f'Document name: {document_name}{chr(10)}{chr(10)}{sections}{chr(10)}{chr(10)}{ANALYSIS_SCHEMA}{chr(10)}{chr(10)}Source context with page markers:{chr(10)}--- BEGIN DOCUMENT CONTEXT ---{chr(10)}{context}{chr(10)}--- END DOCUMENT CONTEXT ---{chr(10)}{chr(10)}Keep the analysis rich: include implementation-level details, exact experiment settings, and concrete follow-up plans whenever the source supports them.'
+
+
+def build_section_prompt(context: str, document_name: str, section: str, current_content: str = '', instruction: str = '') -> str:
+    label = ANALYSIS_SECTION_LABELS[section]
+    section_instruction = SECTION_PROMPTS[section]
+    current = current_content.strip() or '（当前为空，请从文献中生成这一栏。）'
+    request = instruction.strip() or f'生成“{label}”这一栏的研究记录。'
+    return chr(10).join([
+        f'Document name: {document_name}',
+        f'Current section: {label}',
+        f'Section guidance: {section_instruction}',
+        f'User request: {request}',
+        'Current editable content:',
+        current,
+        '',
+        'Return one JSON object with exactly one key: content.',
+        'content must be concise but useful Chinese research notes in plain text or Markdown.',
+        'Keep verified facts separate from analysis suggestions. Do not invent information.',
+        'Source context with page markers:',
+        '--- BEGIN DOCUMENT CONTEXT ---',
+        context,
+        '--- END DOCUMENT CONTEXT ---',
+    ])
