@@ -747,6 +747,28 @@ def make_default_litellm_model_list_settings(
     }
 
 
+def resolve_litellm_model_settings(config: dict | None) -> dict | None:
+    """Resolve environment-backed credentials for OpenAI-compatible gateways."""
+    if config is None:
+        return None
+
+    api_key = os.getenv("codex_modcon_api") or os.getenv("MODCON_API_KEY")
+    if not api_key or "model_list" not in config:
+        return config
+
+    resolved = dict(config)
+    model_list = []
+    for model_entry in config.get("model_list", []):
+        entry = dict(model_entry)
+        params = dict(entry.get("litellm_params", {}))
+        if params.get("api_base", "").rstrip("/") == "https://modcon.top/v1":
+            params.setdefault("api_key", api_key)
+        entry["litellm_params"] = params
+        model_list.append(entry)
+    resolved["model_list"] = model_list
+    return resolved
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore")
 
@@ -925,14 +947,14 @@ class Settings(BaseSettings):
     def get_llm(self) -> LiteLLMModel:
         return LiteLLMModel(
             name=self.llm,
-            config=self.llm_config
+            config=resolve_litellm_model_settings(self.llm_config)
             or make_default_litellm_model_list_settings(self.llm, self.temperature),
         )
 
     def get_summary_llm(self) -> LiteLLMModel:
         return LiteLLMModel(
             name=self.summary_llm,
-            config=self.summary_llm_config
+            config=resolve_litellm_model_settings(self.summary_llm_config)
             or make_default_litellm_model_list_settings(
                 self.summary_llm, self.temperature
             ),
@@ -941,7 +963,7 @@ class Settings(BaseSettings):
     def get_agent_llm(self) -> LiteLLMModel:
         return LiteLLMModel(
             name=self.agent.agent_llm,
-            config=self.agent.agent_llm_config
+            config=resolve_litellm_model_settings(self.agent.agent_llm_config)
             or make_default_litellm_model_list_settings(
                 self.agent.agent_llm, self.temperature
             ),
@@ -953,7 +975,7 @@ class Settings(BaseSettings):
     def get_enrichment_llm(self) -> LiteLLMModel:
         return LiteLLMModel(
             name=self.parsing.enrichment_llm,
-            config=self.parsing.enrichment_llm_config
+            config=resolve_litellm_model_settings(self.parsing.enrichment_llm_config)
             or make_default_litellm_model_list_settings(
                 self.parsing.enrichment_llm, self.temperature
             ),

@@ -27,7 +27,7 @@ from knowledge_storm import (
     STORMWikiRunner,
     STORMWikiLMConfigs,
 )
-from knowledge_storm.lm import OpenAIModel, AzureOpenAIModel
+from knowledge_storm.lm import LitellmModel, OpenAIModel, AzureOpenAIModel
 from knowledge_storm.rm import (
     YouRM,
     BingSearch,
@@ -44,24 +44,38 @@ from knowledge_storm.utils import load_api_key
 def main(args):
     load_api_key(toml_file_path="secrets.toml")
     lm_configs = STORMWikiLMConfigs()
-    openai_kwargs = {
-        "api_key": os.getenv("OPENAI_API_KEY"),
-        "temperature": 1.0,
-        "top_p": 0.9,
-    }
+    modcon_api_key = os.getenv("codex_modcon_api") or os.getenv("MODCON_API_KEY")
+    if modcon_api_key:
+        ModelClass = LitellmModel
+        openai_kwargs = {
+            "api_key": modcon_api_key,
+            "api_base": os.getenv("MODCON_API_BASE", "https://modcon.top/v1"),
+            "temperature": 1.0,
+            "top_p": 0.9,
+            "reasoning_effort": "xhigh",
+            "store": False,
+        }
+        gpt_35_model_name = os.getenv("MODCON_MODEL", "gpt-6-sol")
+        gpt_4_model_name = gpt_35_model_name
+    else:
+        openai_kwargs = {
+            "api_key": os.getenv("OPENAI_API_KEY"),
+            "temperature": 1.0,
+            "top_p": 0.9,
+        }
 
-    ModelClass = (
-        OpenAIModel if os.getenv("OPENAI_API_TYPE") == "openai" else AzureOpenAIModel
-    )
-    # If you are using Azure service, make sure the model name matches your own deployed model name.
-    # The default name here is only used for demonstration and may not match your case.
-    gpt_35_model_name = (
-        "gpt-3.5-turbo" if os.getenv("OPENAI_API_TYPE") == "openai" else "gpt-35-turbo"
-    )
-    gpt_4_model_name = "gpt-4o"
-    if os.getenv("OPENAI_API_TYPE") == "azure":
-        openai_kwargs["api_base"] = os.getenv("AZURE_API_BASE")
-        openai_kwargs["api_version"] = os.getenv("AZURE_API_VERSION")
+        ModelClass = (
+            OpenAIModel if os.getenv("OPENAI_API_TYPE") == "openai" else AzureOpenAIModel
+        )
+        # If you are using Azure service, make sure the model name matches your own deployed model name.
+        # The default name here is only used for demonstration and may not match your case.
+        gpt_35_model_name = (
+            "gpt-3.5-turbo" if os.getenv("OPENAI_API_TYPE") == "openai" else "gpt-35-turbo"
+        )
+        gpt_4_model_name = "gpt-4o"
+        if os.getenv("OPENAI_API_TYPE") == "azure":
+            openai_kwargs["api_base"] = os.getenv("AZURE_API_BASE")
+            openai_kwargs["api_version"] = os.getenv("AZURE_API_VERSION")
 
     # STORM is a LM system so different components can be powered by different models.
     # For a good balance between cost and quality, you can choose a cheaper/faster model for conv_simulator_lm

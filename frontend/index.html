@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f7f8fa" />
+    <title>研序 · 研究工作台</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+    <div class="app-layout">
+      <aside id="sidebar" class="sidebar" aria-label="侧边栏">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="brand-name">研序<span class="brand-period">.</span></span>
+        </div>
+
+        <div class="sidebar-group">
+          <div class="sidebar-caption">
+            <span class="sidebar-caption-title">研究流程</span>
+            <span class="sidebar-caption-count">01—06</span>
+            <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="折叠研究流程" aria-expanded="true" title="折叠研究流程">‹</button>
+          </div>
+          <nav id="stageNav" class="stage-nav" aria-label="研究阶段"></nav>
+        </div>
+
+      </aside>
+
+      <div class="main-column">
+        <header class="topbar">
+          <div class="project-switcher">
+            <span class="topbar-label">当前项目</span>
+            <label class="visually-hidden" for="projectSelect">选择项目</label>
+            <select id="projectSelect"></select>
+            <button id="newProjectButton" class="icon-button" type="button" aria-label="新建项目" title="新建项目">+</button>
+          </div>
+          <div id="saveStatus" class="save-status" role="status"><span class="status-dot"></span>已保存至本地</div>
+        </header>
+
+        <main class="content">
+          <section id="projectOverview" class="project-overview" aria-label="项目进度">
+            <div>
+              <div class="eyebrow"><span class="eyebrow-line"></span> RESEARCH WORKSPACE</div>
+              <h1 id="projectTitle">未命名课题</h1>
+              <p>从文献到图表，一步一步推进。</p>
+            </div>
+            <div class="overview-progress">
+              <div class="progress-top"><span>整体进度</span><strong id="overallProgress">0%</strong></div>
+              <div class="progress-track" role="progressbar" aria-label="整体进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="overallProgressBar"><span id="overallProgressFill"></span></div>
+              <span id="overallDetail" class="progress-detail">0 / 18 项已完成</span>
+            </div>
+          </section>
+
+          <div id="stageHeading" class="section-heading">
+            <div>
+              <div id="stageIndex" class="stage-index">阶段 01 / 06</div>
+              <h2 id="stageTitle">查找与分析论文</h2>
+              <p id="stageDescription">收集论文，厘清研究问题与证据。</p>
+            </div>
+            <div id="stageBadge" class="stage-badge">进行中</div>
+          </div>
+
+          <section id="libraryView" class="library-view" hidden aria-labelledby="libraryTitle">
+            <div class="library-context">
+              <div><strong id="libraryProjectName">3DGS扩刊</strong><span>/</span><span>文献检索与分析</span></div>
+              <div class="library-context-status">阶段 01 · <strong id="libraryStageStatus">进行中</strong></div>
+            </div>
+
+            <div class="library-panel">
+              <div class="library-header">
+                <div>
+                  <div class="panel-kicker">KNOWLEDGE BASE</div>
+                  <h2 id="libraryTitle">文献库</h2>
+                </div>
+                <div class="library-header-actions">
+                  <button id="addLibraryTaskButton" class="text-button" type="button">+ 添加小标题</button>
+                  <button id="importPaperButton" class="footer-button footer-button-primary" type="button">+ 导入文献</button>
+                </div>
+              </div>
+
+              <div class="library-stats" aria-label="文献统计">
+                <div class="library-stat"><span>已保存</span><strong id="savedPaperCount">0</strong></div>
+                <div class="library-stat"><span>已分析</span><strong id="analyzedPaperCount">0</strong></div>
+                <div class="library-stat"><span>待分析</span><strong id="pendingPaperCount">0</strong></div>
+              </div>
+
+              <div class="library-toolbar">
+                <label class="paper-search">
+                  <span aria-hidden="true">⌕</span>
+                  <input id="paperSearch" type="search" placeholder="搜索标题 / 作者 / 关键词" autocomplete="off" />
+                </label>
+                <div id="paperStatusFilters" class="paper-filters" role="group" aria-label="文献状态筛选">
+                  <button class="paper-filter is-active" type="button" data-status="all">全部</button>
+                  <button class="paper-filter" type="button" data-status="analyzed">已分析</button>
+                  <button class="paper-filter" type="button" data-status="pending">待分析</button>
+                </div>
+              </div>
+
+              <div id="libraryTaskStrip" class="library-task-strip" aria-label="自定义小标题" hidden></div>
+              <div id="paperList" class="paper-list"></div>
+            </div>
+          </section>
+
+          <section id="methodDesignView" class="method-design-view" hidden aria-labelledby="methodDesignTitle">
+            <div class="method-canvas-header">
+              <div>
+                <div class="panel-kicker">METHOD CANVAS</div>
+                <h2 id="methodDesignTitle">方法设计</h2>
+                <p>从论文证据出发，把研究 Gap 逐步变成可验证的方法。</p>
+              </div>
+              <button id="methodAssistButton" class="footer-button footer-button-primary" type="button">✦ AI 辅助设计</button>
+            </div>
+
+            <div id="methodStepper" class="method-stepper" aria-label="方法设计八个维度"></div>
+
+            <div class="method-foundation-grid">
+              <section class="method-card method-objective-card">
+                <div class="method-card-header"><div><div class="panel-kicker">01 · OBJECTIVE</div><h3>研究目标</h3></div><span class="method-card-tag">Research Objective</span></div>
+                <label class="method-field-label" for="methodProblemInput">现有问题</label>
+                <textarea id="methodProblemInput" class="method-field" rows="2">高分辨率场景下 Gaussian 数量快速增长，导致显存和存储成本较高。</textarea>
+                <label class="method-field-label" for="methodGoalInput">设计目标</label>
+                <textarea id="methodGoalInput" class="method-field" rows="2">在尽可能保持 rendering quality 的情况下，降低 Gaussian 数量和模型存储。</textarea>
+                <label class="method-field-label" for="methodConstraintsInput">约束条件</label>
+                <input id="methodConstraintsInput" class="method-field" type="text" value="PSNR 下降 &lt; X · Storage ↓ · FPS 不明显下降" />
+                <div class="method-source-row"><span>来源</span><button class="source-chip" type="button" data-method-source="Mip-Splatting">Mip-Splatting</button><button class="source-chip" type="button" data-method-source="Scaffold-GS">Scaffold-GS</button><button class="source-chip" type="button" data-method-source="Gaussian Splatting">Gaussian Splatting</button></div>
+              </section>
+
+              <section class="method-card">
+                <div class="method-card-header"><div><div class="panel-kicker">02 · MOTIVATION</div><h3>设计动机</h3></div><span class="method-card-tag">Motivation</span></div>
+                <label class="method-field-label" for="methodMotivationInput">现有方法的问题</label>
+                <textarea id="methodMotivationInput" class="method-field method-field-tall" rows="7">• pruning 容易损失细节
+• compression ratio 高，但训练复杂
+• vector quantization 存在 codebook overhead
+• 单个 Gaussian 的局部属性无法识别空间与特征冗余</textarea>
+                <div class="method-insight">共同问题：现有方法没有充分考虑 Gaussian 之间的空间 / 特征冗余关系。</div>
+              </section>
+
+              <section class="method-card">
+                <div class="method-card-header"><div><div class="panel-kicker">03 · HYPOTHESIS</div><h3>核心假设</h3></div><span class="method-card-tag">Hypothesis</span></div>
+                <div class="hypothesis-flow">
+                  <label><span>Observation</span><textarea id="methodObservationInput" class="method-field" rows="2">相邻 Gaussian 存在大量相似 feature。</textarea></label>
+                  <span class="flow-arrow">↓</span>
+                  <label><span>Hypothesis</span><textarea id="methodHypothesisInput" class="method-field" rows="2">部分 Gaussian 表达的是重复信息。</textarea></label>
+                  <span class="flow-arrow">↓</span>
+                  <label><span>Intervention</span><textarea id="methodInterventionInput" class="method-field" rows="2">根据 spatial + feature similarity 进行 adaptive Gaussian merging。</textarea></label>
+                  <span class="flow-arrow">↓</span>
+                  <label><span>Expected Effect</span><textarea id="methodEffectInput" class="method-field" rows="2">Gaussian 数量下降，同时比简单 pruning 更好地保留细节。</textarea></label>
+                </div>
+              </section>
+            </div>
+
+            <section class="method-card candidate-card">
+              <div class="method-card-header"><div><div class="panel-kicker">04 · PROPOSED METHOD</div><h3>候选方案</h3><p>先比较多个方向，再由研究者选择或组合。</p></div><span id="candidateCount" class="candidate-count">3 个候选</span></div>
+              <div id="approachList" class="approach-list"></div>
+            </section>
+
+            <section id="selectedMethodPanel" class="method-card selected-method-card">
+              <div class="selected-method-header"><div><div class="panel-kicker">DESIGN DETAIL</div><h3 id="selectedMethodTitle">Adaptive Gaussian Merging</h3><p id="selectedMethodSubtitle">利用 spatial + feature similarity 识别冗余并进行自适应合并。</p></div><div class="selected-method-version">方案 V3 <span>已采用</span></div></div>
+              <nav id="methodDetailTabs" class="method-detail-tabs" aria-label="方法设计详情"></nav>
+              <article id="methodDetailContent" class="method-detail-content"></article>
+            </section>
+          </section>
+
+          <div id="genericStageView" class="workspace-grid">
+            <section class="panel workspace-panel" aria-labelledby="workspaceTitle">
+              <div class="panel-header">
+                <div><div class="panel-kicker">WORKSPACE</div><h3 id="workspaceTitle">工作记录</h3></div>
+                <span class="panel-hint">自动保存</span>
+              </div>
+              <div id="fieldGrid" class="field-grid"></div>
+            </section>
+
+            <div class="side-panels">
+              <section class="panel checklist-panel" aria-labelledby="checklistTitle">
+                <div class="panel-header">
+                  <div><div class="panel-kicker">CHECKLIST</div><h3 id="checklistTitle">自定义小标题</h3></div>
+                  <button id="addTaskButton" class="text-button" type="button">+ 添加小标题</button>
+                  <span id="taskProgress" class="task-progress">0 / 3</span>
+                </div>
+                <div id="taskList" class="task-list"></div>
+                <div class="tools-area"><div class="tools-label">参考工具</div><div id="toolList" class="tool-list"></div></div>
+              </section>
+
+              <section class="panel files-panel" aria-labelledby="filesTitle">
+                <div class="panel-header">
+                  <div><div class="panel-kicker">FILES</div><h3 id="filesTitle">阶段资料</h3></div>
+                  <button id="addFileButton" class="text-button" type="button">+ 添加文件</button>
+                  <input id="fileInput" type="file" multiple hidden />
+                </div>
+                <div id="fileList" class="file-list"></div>
+                <p class="file-note">仅保存文件名，不上传文件内容</p>
+              </section>
+            </div>
+          </div>
+
+          <div id="stageFooter" class="stage-footer">
+            <button id="previousButton" class="footer-button footer-button-secondary" type="button">← 上一阶段</button>
+            <span id="footerPosition" class="footer-position">01 / 06</span>
+            <button id="nextButton" class="footer-button footer-button-primary" type="button">下一阶段 →</button>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <dialog id="projectDialog" class="project-dialog" aria-labelledby="dialogTitle">
+      <form id="projectForm" novalidate>
+        <div class="dialog-icon" aria-hidden="true">+</div>
+        <h2 id="dialogTitle">新建研究项目</h2>
+        <p>给这项研究起一个名字。</p>
+        <label for="projectName">项目名称</label>
+        <input id="projectName" name="projectName" type="text" placeholder="例如：大模型在文献检索中的应用" maxlength="80" required autocomplete="off" />
+        <div class="dialog-actions">
+          <button id="cancelProjectButton" class="footer-button footer-button-secondary" type="button">取消</button>
+          <button class="footer-button footer-button-primary" type="submit">创建项目</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="importDialog" class="import-dialog" aria-labelledby="importDialogTitle">
+      <form id="importForm" novalidate>
+        <div class="dialog-header-row">
+          <div><div class="panel-kicker">LIBRARY</div><h2 id="importDialogTitle">导入文献</h2></div>
+          <button id="closeImportButton" class="modal-close" type="button" aria-label="关闭">×</button>
+        </div>
+        <label id="paperDropZone" class="paper-drop-zone">
+          <input id="paperFileInput" type="file" accept="application/pdf,.pdf" multiple hidden />
+          <span class="drop-icon" aria-hidden="true">↑</span>
+          <strong>拖入 PDF 文件</strong>
+          <span>或点击选择文件</span>
+          <small id="selectedFileNames">支持 PDF，文件内容暂不上传</small>
+        </label>
+        <div class="import-custom-fields">
+          <div class="import-field-group">
+            <label for="paperTitle">标题（可修改）</label>
+            <input id="paperTitle" type="text" maxlength="200" placeholder="留空则使用文件名或链接名称" autocomplete="off" />
+          </div>
+          <div class="import-field-group">
+            <label for="paperSubtitle">小标题（可选）</label>
+            <input id="paperSubtitle" type="text" maxlength="200" placeholder="给这篇文献补充一个自定义小标题" autocomplete="off" />
+          </div>
+          <small class="import-field-note">批量导入时，填写的标题和小标题会应用到本次导入的全部文献。</small>
+        </div>
+        <div class="import-divider"><span>或</span></div>
+        <label class="import-url-field" for="paperUrl">DOI / arXiv / URL</label>
+        <input id="paperUrl" type="url" placeholder="https://arxiv.org/..." autocomplete="off" />
+        <div class="dialog-actions">
+          <button id="cancelImportButton" class="footer-button footer-button-secondary" type="button">取消</button>
+          <button class="footer-button footer-button-primary" type="submit">导入</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="paperDetailDialog" class="paper-detail-dialog" aria-labelledby="paperDetailTitle">
+      <div class="paper-detail-shell">
+        <div class="detail-topbar">
+          <button id="closeDetailButton" class="back-button" type="button">← 返回文献库</button>
+          <span id="detailStatus" class="paper-status"></span>
+        </div>
+        <header class="paper-detail-header">
+          <div>
+            <div class="panel-kicker">PAPER DETAIL</div>
+            <h2 id="paperDetailTitle">论文标题</h2>
+            <p id="paperDetailSubtitle"></p>
+            <div id="paperDetailMeta" class="paper-detail-meta"></div>
+            <div id="paperDetailTags" class="paper-tags"></div>
+          </div>
+          <div class="detail-actions">
+            <button id="detailPdfButton" class="footer-button footer-button-secondary" type="button">查看 PDF</button>
+            <button id="detailReanalyzeButton" class="footer-button footer-button-primary" type="button">重新分析</button>
+            <button id="detailExportButton" class="footer-button footer-button-secondary" type="button">导出</button>
+          </div>
+        </header>
+        <nav id="paperDetailTabs" class="paper-detail-tabs" aria-label="论文分析维度"></nav>
+        <article id="paperDetailContent" class="paper-detail-content"></article>
+      </div>
+    </dialog>
+
+    <dialog id="evidenceDialog" class="evidence-dialog" aria-labelledby="evidenceTitle">
+      <div class="evidence-shell">
+        <div class="dialog-header-row">
+          <div><div class="panel-kicker">SOURCE EVIDENCE</div><h2 id="evidenceTitle">原文证据</h2></div>
+          <button id="closeEvidenceButton" class="modal-close" type="button" aria-label="关闭">×</button>
+        </div>
+        <div class="evidence-grid">
+          <div class="evidence-summary"><span id="evidenceLabel" class="evidence-label"></span><p id="evidenceText"></p><button id="evidencePdfButton" class="text-button" type="button">打开 PDF →</button></div>
+          <div class="pdf-preview"><div class="pdf-preview-head"><span>PDF</span><strong id="evidencePage">Page 1</strong></div><div class="pdf-page-lines"><i></i><i></i><i></i><i></i><b></b><i></i><i></i><i></i></div><span class="pdf-highlight">原文片段预览</span></div>
+        </div>
+      </div>
+    </dialog>
+  </body>
+</html>

@@ -1,0 +1,65 @@
+{
+  "llm": "gpt-6-sol",
+  "llm_config": {
+    "model_list": [
+      {
+        "model_name": "gpt-6-sol",
+        "litellm_params": {
+          "model": "gpt-6-sol",
+          "api_base": "https://modcon.top/v1",
+          "reasoning_effort": "xhigh",
+          "store": false
+        }
+      }
+    ]
+  },
+  "summary_llm": "gpt-6-sol",
+  "summary_llm_config": {
+    "model_list": [
+      {
+        "model_name": "gpt-6-sol",
+        "litellm_params": {
+          "model": "gpt-6-sol",
+          "api_base": "https://modcon.top/v1",
+          "reasoning_effort": "xhigh",
+          "store": false
+        }
+      }
+    ]
+  },
+  "embedding": "sparse",
+  "temperature": 1.0,
+  "parsing": {
+    "multimodal": false,
+    "enrichment_llm": "gpt-6-sol",
+    "enrichment_llm_config": {
+      "model_list": [
+        {
+          "model_name": "gpt-6-sol",
+          "litellm_params": {
+            "model": "gpt-6-sol",
+            "api_base": "https://modcon.top/v1",
+            "reasoning_effort": "xhigh",
+            "store": false
+          }
+        }
+      ]
+    }
+  },
+  "agent": {
+    "agent_llm": "gpt-6-sol",
+    "agent_llm_config": {
+      "model_list": [
+        {
+          "model_name": "gpt-6-sol",
+          "litellm_params": {
+            "model": "gpt-6-sol",
+            "api_base": "https://modcon.top/v1",
+            "reasoning_effort": "xhigh",
+            "store": false
+          }
+        }
+      ]
+    }
+  }
+}
