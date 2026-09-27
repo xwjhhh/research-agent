@@ -61,6 +61,8 @@ class PaperQACompatibleAdapter:
         self.responses_path = os.getenv('LLM_RESPONSES_PATH', '/responses').strip()
         self.timeout = float(os.getenv('LLM_TIMEOUT_SECONDS', '240'))
         self.max_context_chars = int(os.getenv('LLM_MAX_CONTEXT_CHARS', '90000'))
+        self.retry_attempts = max(1, min(int(os.getenv('LLM_RETRY_ATTEMPTS', '3')), 5))
+        self.retry_backoff_seconds = max(0.5, float(os.getenv('LLM_RETRY_BACKOFF_SECONDS', '2')))
         self.paperqa_available = importlib.util.find_spec('paperqa') is not None
 
     async def analyze(self, document_path: Path, document_name: str, source_url: str = '') -> dict[str, Any]:
@@ -143,6 +145,21 @@ class PaperQACompatibleAdapter:
         selected.sort(key=lambda item: item['order'])
         return chr(10).join(self._format_context_item(item) for item in selected)
 
+    async def _post_with_retries(self, client: httpx.AsyncClient, url: str, headers: dict[str, str], payload: dict[str, Any]) -> httpx.Response:
+        retryable_statuses = {408, 429, 500, 502, 503, 504}
+        for attempt in range(self.retry_attempts):
+            try:
+                response = await client.post(url, headers=headers, json=payload)
+            except httpx.HTTPError:
+                if attempt + 1 >= self.retry_attempts:
+                    raise
+                await asyncio.sleep(self.retry_backoff_seconds * (2 ** attempt))
+                continue
+            if response.status_code not in retryable_statuses or attempt + 1 >= self.retry_attempts:
+                return response
+            await asyncio.sleep(self.retry_backoff_seconds * (2 ** attempt))
+        raise RuntimeError('LLM request retry loop ended unexpectedly')
+
     async def _complete_responses_json(self, user_prompt: str, schema: str = ANALYSIS_SCHEMA) -> dict[str, Any]:
         headers = {'Content-Type': 'application/json'}
         if self.api_key:
@@ -160,13 +177,13 @@ class PaperQACompatibleAdapter:
             payload['reasoning'] = {'effort': self.reasoning_effort}
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.post(f'{self.api_base}{path}', headers=headers, json=payload)
+                response = await self._post_with_retries(client, f'{self.api_base}{path}', headers, payload)
                 if response.status_code >= 400:
                     payload.pop('text', None)
-                    response = await client.post(f'{self.api_base}{path}', headers=headers, json=payload)
+                    response = await self._post_with_retries(client, f'{self.api_base}{path}', headers, payload)
                 if response.status_code >= 400 and 'reasoning' in payload:
                     payload.pop('reasoning', None)
-                    response = await client.post(f'{self.api_base}{path}', headers=headers, json=payload)
+                    response = await self._post_with_retries(client, f'{self.api_base}{path}', headers, payload)
                 if response.status_code >= 400:
                     raise AnalysisAdapterError(f'Responses API 返回 HTTP {response.status_code}：{response.text[:1000]}')
         except httpx.HTTPError as exc:
@@ -224,10 +241,10 @@ class PaperQACompatibleAdapter:
         }
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.post(f'{self.api_base}/chat/completions', headers=headers, json=payload)
+                response = await self._post_with_retries(client, f'{self.api_base}/chat/completions', headers, payload)
                 if response.status_code >= 400:
                     payload.pop('response_format', None)
-                    response = await client.post(f'{self.api_base}/chat/completions', headers=headers, json=payload)
+                    response = await self._post_with_retries(client, f'{self.api_base}/chat/completions', headers, payload)
                 if response.status_code >= 400:
                     raise AnalysisAdapterError(f'LLM API 返回 HTTP {response.status_code}：{response.text[:1000]}')
         except httpx.HTTPError as exc:
